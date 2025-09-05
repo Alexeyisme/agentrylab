@@ -1,0 +1,73 @@
+#########################
+# Follow‑Up Q&A preset
+# User provides a topic; an explainer gives a brief overview,
+# an interviewer asks follow‑ups, the explainer answers again,
+# interviewer asks one more round, and a summarizer wraps up.
+#
+# Tips:
+# - Seed with FOLLOWUP_TOPIC (see `objective`).
+# - Uses Round‑Robin order to enforce the exact 5‑turn sequence.
+# - Prompts avoid asking the user to type; outputs are self‑contained.
+#########################
+
+version: "1.0.0"
+id: follow_up
+name: Follow‑Up Q&A
+description: Explainer → interview → answer → follow‑ups → summary.
+
+# Optional user seed topic
+objective: ${FOLLOWUP_TOPIC:Pick a topic to explore with follow‑up questions.}
+
+runtime:
+  max_rounds: 5
+  trace: { enabled: true }
+  scheduler:
+    impl: agentrylab.runtime.scheduler.round_robin.RoundRobinScheduler
+    params:
+      # Exact sequence: explainer → interviewer → explainer → interviewer → summarizer
+      order: [explainer, interviewer, explainer, interviewer, summarizer]
+  message_contract:
+    require_metadata: false
+  context_defaults:
+    pin_objective: true
+
+providers:
+  - id: ollama_llama3
+    impl: agentrylab.runtime.providers.ollama.OllamaProvider
+    model: "llama3:latest"
+    base_url: "http://localhost:11434"
+    timeout: 8
+
+agents:
+  - id: explainer
+    role: agent
+    provider: ollama_llama3
+    description: Briefly describes the topic and answers follow‑ups
+    context:
+      max_messages: 6
+    system_prompt: |
+      You are an explainer. First turn: describe the Objective in 3–5 sentences,
+      high‑level and friendly. Later turns: answer the interviewer’s latest
+      follow‑up clearly in 3–5 sentences. Do not ask the user to type/respond.
+      Keep outputs self‑contained; no references or meta.
+
+  - id: interviewer
+    role: agent
+    provider: ollama_llama3
+    description: Asks concise follow‑up questions
+    context:
+      max_messages: 6
+    system_prompt: |
+      You are an interviewer. Ask 2–3 concise follow‑up questions based ONLY on
+      the explainer’s latest output. Use short numbered questions (1–2 lines).
+      No meta (e.g., “please respond”), no audience prompts, and never empty.
+
+  - id: summarizer
+    role: summarizer
+    provider: ollama_llama3
+    description: Summarizes key points and answers
+    system_prompt: |
+      Summarize the essential points and answers in 3–5 COMPLETE sentences.
+      No bullets, no references, no requests to respond. Keep it clear and tidy.
+    max_summary_chars: 500
+

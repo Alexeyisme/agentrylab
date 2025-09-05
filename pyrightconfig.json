@@ -1,0 +1,9 @@
+{
+  "venvPath": ".",
+  "typeCheckingMode": "standard",
+  "reportMissingTypeStubs": "warning",
+  "reportUnknownMemberType": "warning",
+  "reportUnknownVariableType": "warning",
+  "include": ["agentrylab", "tests"],
+  "exclude": ["build"]
+}

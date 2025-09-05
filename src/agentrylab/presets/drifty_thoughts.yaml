@@ -1,0 +1,85 @@
+#########################
+# Drifty Thoughts preset
+# Tips:
+# - Adjust scheduler order to change speaking sequence.
+# - Set TOPIC env var to seed the conversation objective (see `objective`).
+# - Toggle context pinning via `context_defaults.pin_objective`.
+#########################
+
+version: "1.0.0"
+id: drifty_thoughts
+name: Drifty Thoughts
+description: Agents riff on a topic; moderator is drift-friendly.
+
+# Optional user seed topic (picked up when pin_objective=true)
+objective: ${TOPIC:Explore something delightful and unexpected today.}
+
+runtime:
+  max_rounds: 5
+  trace: { enabled: true }
+  scheduler:
+    impl: agentrylab.runtime.scheduler.every_n.EveryNScheduler
+    params:
+      schedule:
+        thinker1: 1
+        thinker2: 1
+        thinker3: 1
+        moderator: 2
+        summarizer:
+          every_n: 3
+          run_on_last: true
+  message_contract:
+    require_metadata: false
+  # Pin the objective into each node's context window
+  context_defaults:
+    pin_objective: true
+
+providers:
+  - id: ollama_llama3
+    impl: agentrylab.runtime.providers.ollama.OllamaProvider
+    model: "llama3:latest"
+    base_url: "http://localhost:11434"
+    timeout: 8
+
+agents:
+  - id: thinker1
+    role: agent
+    provider: ollama_llama3
+    description: Wandering philosopher
+    system_prompt: |
+      You are a philosopher. Drift and explore tangents freely.
+      Avoid asking the user to type commands or to respond.
+      Write standalone prose without soliciting input.
+  - id: thinker2
+    role: agent
+    provider: ollama_llama3
+    description: Storyteller
+    system_prompt: |
+      You are a storyteller. Spin related anecdotes and playful threads.
+      Avoid asking the user to type commands or to respond.
+      Write standalone prose without soliciting input.
+  - id: thinker3
+    role: agent
+    provider: ollama_llama3
+    description: Dreamer
+    system_prompt: |
+      You are a dreamer. Paint imaginative scenarios without strict bounds.
+      Avoid asking the user to type commands or to respond.
+      Write standalone prose without soliciting input.
+  - id: moderator
+    role: advisor
+    provider: ollama_llama3
+    description: Drift-friendly advisor
+    system_prompt: |
+      You are a gentle advisor. Encourage interesting exploration and allow topic drift.
+      Avoid strict policing. If needed, suggest a soft nudge back to the theme.
+
+  - id: summarizer
+    role: summarizer
+    provider: ollama_llama3
+    description: Occasional drift digest
+    system_prompt: |
+      Summarize the most interesting ideas so far in 3–5 sentences.
+      Keep it playful and concise. Avoid empty output.
+      Ignore filler like requests to respond; summarize only substantive content.
+    max_summary_chars: 400

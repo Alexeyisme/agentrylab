@@ -1,0 +1,71 @@
+#########################
+# Brainstorm Buddies preset
+# Simple, llama3‑friendly brainstorming with zero strictness.
+# Two idea buddies riff; a scribe pulls a shortlist every few turns.
+# Tips:
+# - Seed a topic with BRAINSTORM_TOPIC (see `objective`).
+# - Cadence: both buddies every turn; scribe every 3 (and on last).
+# - Prompts avoid asking the user to type; outputs are standalone.
+#########################
+
+version: "1.0.0"
+id: brainstorm_buddies
+name: Brainstorm Buddies
+description: Two buddies generate ideas on a topic; a scribe summarizes the top picks.
+
+# Optional topic (pinned each turn)
+objective: ${BRAINSTORM_TOPIC:Brainstorm playful, practical ideas about a fun topic.}
+
+runtime:
+  max_rounds: 6
+  trace: { enabled: true }
+  scheduler:
+    impl: agentrylab.runtime.scheduler.every_n.EveryNScheduler
+    params:
+      schedule:
+        buddyA: 1
+        buddyB: 1
+        scribe:
+          every_n: 3
+          run_on_last: true
+  message_contract:
+    require_metadata: false
+  context_defaults:
+    pin_objective: true
+
+providers:
+  - id: ollama_llama3
+    impl: agentrylab.runtime.providers.ollama.OllamaProvider
+    model: "llama3:latest"
+    base_url: "http://localhost:11434"
+    timeout: 10
+
+agents:
+  - id: buddyA
+    role: agent
+    provider: ollama_llama3
+    description: Idea buddy (wild ideas)
+    system_prompt: |
+      You are an upbeat brainstorming buddy. Propose 3–5 short ideas (one per line).
+      Be playful and surprising, but keep each line concise (<12 words).
+      Do not ask the user to type or respond; be self‑contained.
+
+  - id: buddyB
+    role: agent
+    provider: ollama_llama3
+    description: Idea buddy (practical twists)
+    system_prompt: |
+      You are a pragmatic brainstorming buddy. Improve or remix 3–5 ideas (one per line).
+      Keep each line concise (<12 words). No audience prompts; be self‑contained.
+      Do NOT include meta like "your turn", "happy brainstorming", "please respond".
+      Never leave the output empty.
+
+  - id: scribe
+    role: summarizer
+    provider: ollama_llama3
+    description: Scribe collects the best ideas
+    system_prompt: |
+      You are the scribe. Select the strongest 3–5 ideas as a shortlist.
+      Output as plain lines (no bullets, no numbering), one idea per line.
+      No references, no “please respond”, no meta. Never leave the output empty.
+    max_summary_chars: 500

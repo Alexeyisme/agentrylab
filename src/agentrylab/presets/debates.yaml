@@ -1,0 +1,285 @@
+# === Spec metadata ===
+version: "1.0.0"                      # preset schema/version (free‑form; useful for tooling)
+id: debateclub                         # unique room/config identifier (used in filenames/db)
+name: Debate Club                      # human‑friendly name (shown in UIs/logs)
+description: Oxford-style debate with evidence-first policy  # short description of the scenario
+objective: "Proposition: AI regulation should be significantly stricter to ensure safety and accountability."  # optional seed topic (pinned when enabled)
+
+# === Global runtime and policy ===
+runtime:
+  message_contract:                 # lightweight constraints the runtime enforces on agent outputs
+    require_metadata: true          # when true, agent outputs must include metadata (e.g., citations)
+    min_citations: 1                # minimum number of URLs to include in metadata.citations
+  logs:
+    level: INFO                     # DEBUG/INFO/WARN/ERROR — controls verbosity
+    format: "%(asctime)s %(levelname)s %(name)s: %(message)s"  # python logging format
+    # file: "/tmp/agentrylab.log"   # optional: write logs to file
+  trace:
+    enabled: true                   # emit lightweight JSON trace events (provider_result, etc.)
+    # file: "/tmp/agentrylab-trace.jsonl"  # optional: write trace to a file
+  max_rounds: 9                        # hard stop for debate turns (summarizer may still run at end)
+  scheduler:
+    impl: agentrylab.runtime.scheduler.every_n.EveryNScheduler  # pick who speaks each turn
+    params:
+      schedule:                        # Every‑N cadence (1=every turn, 2=every 2nd turn, ...)
+        pro: 1                         # Pro debater speaks every turn
+        con: 1                         # Con debater speaks every turn
+        moderator: 2                   # Moderator speaks every 2nd turn
+        summarizer: 2                  # Summarizer speaks every 2nd turn (and often on last)
+  allow_parallel_tools: true           # allow agents to request multiple tools in one turn
+  fail_open_on_tool_error: false       # false=surface tool error as assistant text; true=continue anyway
+  default_timeout_s: 60                # default timeout per provider/tool call (seconds)
+  strict_budget: false                 # true=deny over‑budget tool calls; false=warn and proceed
+
+# High‑level rules the Moderator references to enforce behavior
+room_rules:
+  topic_focus_threshold: 0.4           # drift in [0,1]; if > threshold, moderator may STEP_BACK
+  require_urls_for_factual_claims: true # ask agents to include at least one supporting URL per turn
+  min_urls_per_side: 1                 # minimum number of URLs per side to consider as sufficient
+  max_message_len: 120                 # soft limit on message length (words) — guidance for prompts
+  evidence_first_policy: true          # encourage tool search before factual assertions
+
+# Defaults applied to all agents unless overridden
+context_defaults:
+  pin_objective: true                  # inject Objective as a user message each turn (topic anchoring)
+  pin_system_prompt: true              # inject node system prompt each turn (prevents role drift)
+
+# Moderation policy knobs (used by the Moderator + engine)
+moderation:
+  step_back:
+    allow: true                        # enable STEP_BACK control action
+    max_rollback: 6                    # maximum messages to rewind on STEP_BACK
+    clear_running_summaries: "optional" # whether to clear running summaries on rollback
+
+# === Providers (LLM backends) ===
+providers:
+  - id: openai_gpt4o_mini
+    impl: agentrylab.runtime.providers.openai.OpenAIProvider
+    model: "gpt-4o-mini"               # provider/model identifier (per provider spec)
+    api_key: ${OPENAI_API_KEY}         # loaded from env/.env (see README)
+    temperature: 0.2                   # lower = more deterministic responses
+  - id: ollama_llama3
+    impl: agentrylab.runtime.providers.ollama.OllamaProvider
+    model: "llama3:latest"             # Ollama model tag
+    base_url: "http://localhost:11434" # Ollama server URL
+    temperature: 0.2                   # sampling temperature
+    # optional advanced options passed to Ollama
+    options:
+      num_ctx: 4096                    # context window tokens (model dependent)
+      top_p: 0.9                       # nucleus sampling
+
+# === Tools (callable functions usable by agents) ===
+tools:
+  - id: search_ddg
+    description: Searching the web using DuckDuckGo
+    impl: agentrylab.runtime.tools.ddg.DuckDuckGoSearchTool # fully‑qualified tool class
+    params:
+      max_results: 5                   # default results cap
+      safesearch: "moderate"          # safe search policy
+      retries: 1                       # retry count on transient errors
+      backoff: 0.3                     # seconds; exponential backoff base
+    budget:                            # budget limits enforced by State/Engine
+      per_run_min: 0                   # advisory minimum (not enforced at call time)
+      per_run_max: 2                   # max total calls across the whole run
+      per_iteration_min: 0             # advisory minimum per iteration
+      per_iteration_max: 1             # max calls during a single iteration
+    observability:
+      log_calls: true                  # log tool invocations
+      log_results: 3                   # record top‑N results for debugging
+
+  - id: wolfram_alpha
+    description: Querying Wolfram Alpha for computational knowledge
+    impl: agentrylab.runtime.tools.wolfram.WolframAlphaTool
+    params:
+      app_id: ${WOLFRAM_APP_ID}        # API key loaded from env/.env
+    budget:
+      per_run_min: 0                   # advisory min
+      per_run_max: 3                   # max calls per run
+      per_iteration_min: 0             # advisory min per iteration
+      per_iteration_max: 1             # max calls per iteration
+    observability:
+      log_calls: true
+      log_results: 30                  # keep more results for inspection
+
+# === Optional non‑blocking advisors (speak but do not gate progress) ===
+advisors:                              # array is optional; advisors are non‑blocking reviewers
+  - id: style_coach                    # example advisor: focuses on clarity/structure
+    role: advisor
+    display_name: "Style Coach"
+    description: Non-blocking advisor that gives clarity/style feedback
+    provider: ollama_llama3
+    tools: []
+    non_blocking: true                 # advisors never block or issue STEP_BACK/STOP
+    context:
+      max_messages: 3                  # small memory window
+      running_summary: true
+    system_prompt: |
+      You are a non-blocking advisor. Suggest micro-edits for clarity and structure.
+      - No new facts; no external claims; no tool calls.
+      - Keep suggestions under 60 words; bullet points preferred.
+      - If the message is already clear, reply with a single line: OK
+
+# === Agents (blocking Pro/Con + Moderator + Summarizer) ===
+agents:
+  - id: pro
+    role: agent                        # blocking debater
+    display_name: "Pro"
+    description: Pro-argumenting debater
+    provider: ollama_llama3
+    tools: [search_ddg]
+    context:
+      max_messages: 5
+      pin_objective: true              # overrides default explicitly (redundant but clear)
+      running_summary: true
+    system_prompt: |
+      You argue IN FAVOR of the user's proposition.
+      - State a clear thesis supporting the proposition.
+      - TOOL CALL FIRST: Before asserting any fact, emit exactly this JSON to call the search tool (no prose):
+        {"tools": [{"tool": "search_ddg", "args": {"query": "<short positive-biased query>"}}]}
+      - IMPORTANT: Your first output for each turn MUST be the JSON tool call ONLY — one line, no prose, no code fences.
+      - Also acceptable: the same JSON inside a ```json fenced block if unavoidable.
+      - Fallback: If you cannot emit the JSON tool call, proceed with your answer, but you MUST include at least one http(s) URL inline.
+      - After the tool returns, provide your answer in a separate message.
+      - Always include ≥1 supporting URL inline in the text.
+      - Rebut the opponent's last point directly without repeating their text verbatim.
+      - Stay opposed: Do not agree with or echo the Con's arguments.
+      - Be concise (<=120 words) unless evidence is explicitly requested.
+      - Few-shot (structure):
+        First message (tool call only):
+        {"tools": [{"tool": "search_ddg", "args": {"query": "benefits of stricter AI regulation evidence"}}]}
+        Second message (answer, ≤120 words, with ≥1 URL inline):
+        Stricter, risk-based rules improve accountability without halting progress; disclosure and auditability reduce systemic harms in sensitive domains. See OECD guidance: https://oecd.ai/en/ai-principles
+
+  - id: con
+    role: agent                        # blocking debater
+    display_name: "Con"
+    description: Con-argumenting debater
+    provider: ollama_llama3
+    tools: [search_ddg]
+    context:
+      max_messages: 5
+      pin_objective: true
+      running_summary: true
+    system_prompt: |
+      You argue AGAINST the user's proposition.
+      - State a clear thesis opposing the proposition.
+      - TOOL CALL FIRST: Before asserting any fact, emit exactly this JSON to call the search tool (no prose):
+        {"tools": [{"tool": "search_ddg", "args": {"query": "<short negative-biased query>"}}]}
+      - IMPORTANT: Your first output for each turn MUST be the JSON tool call ONLY — one line, no prose, no code fences.
+      - Also acceptable: the same JSON inside a ```json fenced block if unavoidable.
+      - Fallback: If you cannot emit the JSON tool call, proceed with your answer, but you MUST include at least one http(s) URL inline.
+      - After the tool returns, provide your answer in a separate message.
+      - Always include ≥1 supporting URL inline in the text.
+      - Rebut the opponent's last point directly without repeating their text verbatim.
+      - Stay opposed: Do not agree with or echo the Pro's arguments.
+      - Be concise (<=120 words) unless evidence is explicitly requested.
+      - Few-shot (structure):
+        First message (tool call only):
+        {"tools": [{"tool": "search_ddg", "args": {"query": "AI regulation harms innovation evidence"}}]}
+        Second message (answer, ≤120 words, with ≥1 URL inline):
+        Over-broad rules risk chilling life‑saving innovations and burden smaller labs. A targeted, risk‑based approach preserves progress while addressing genuine harms. See critique: https://www.brookings.edu/articles/how-to-regulate-ai-without-stifling-innovation/
+
+  - id: moderator
+    role: moderator                    # single blocking moderator
+    display_name: "Moderator"
+    description: Moderating the debate
+    provider: openai_gpt4o_mini
+    tools: [search_ddg, wolfram_alpha]
+    context:
+      max_messages: 5
+      pin_objective: true
+      running_summary: true
+    output_contract: json              # engine validates JSON response shape
+    system_prompt: |
+      You are the Moderator. Enforce:
+      - Contrast: ensure Pro and Con are meaningfully opposed; if they converge or evade, request revisions.
+      - Evidence sufficiency: verify each side's metadata.citations has ≥1 URL for factual claims this iteration.
+      - Topic focus: compute drift in [0,1]; if drift > 0.4, suggest STEP_BACK with guidance.
+      - Citations field: return a combined list of unique URLs cited by Pro and Con in the current iteration (order does not matter).
+      Output rules (STRICT):
+      - Respond ONLY with JSON (no prose, no code fences, no trailing commentary).
+      - If you cannot output valid JSON, output nothing.
+      JSON shape (keys exactly as below):
+      {"summary": str,
+       "drift": float,
+       "action": "CONTINUE"|"STOP"|"STEP_BACK",
+       "rollback": int,
+       "citations": [str],
+       "clear_summaries": true|false}
+      Notes:
+      - "rollback" is number of messages to rewind (0..policy.max_rollback).
+      - If "clear_summaries" is omitted and policy is "optional", the engine uses default=false.
+
+  - id: summarizer
+    role: summarizer                   # blocking only at run end if run_on_last=true
+    display_name: "Summarizer"
+    description: Debate Summarizer
+    provider: openai_gpt4o_mini
+    context:
+      max_tokens: 800                  # prefer token cap for summarizer
+      pin_objective: true
+      running_summary: true
+    system_prompt: |
+      You are the Debate Summarizer. Create concise, structured summaries of debate outcomes.
+      Objectives:
+      - Focus on key arguments, evidence presented, and final positions.
+      - Highlight the strongest points from each side.
+      - Maintain neutrality and accuracy.
+      - Keep summaries under 200 words unless the debate is complex.
+      Evidence handling:
+      - Extract and list the most relevant URLs cited during the debate (≤3 per side). Do not invent links.
+      Output format:
+      - Outcome: 2–3 sentences.
+      - Strongest Points — Pro: 2–3 bullets.
+      - Strongest Points — Con: 2–3 bullets.
+      - Evidence: two sublists (Pro | Con) with up to 3 URLs each.
+      - Open Questions: 1–3 bullets (optional).
+      - Next Steps: 1–3 bullets (optional).
+
+# (duplicate advisors block removed)
+    tools: []
+    non_blocking: true
+
+# === Scheduling (who speaks when) ===
+schedule:
+  - id: pro
+    every_n: 1                         # pro speaks every round (blocking)
+  - id: con
+    every_n: 1                         # con speaks every round (blocking)
+  - id: moderator
+    every_n: 2                         # moderator evaluates every 2 rounds
+  - id: summarizer
+    every_n: 3                         # periodic summaries
+    run_on_last: true                  # force final summary at end of run
+  - id: style_coach
+    every_n: 3                         # advisor cadence (non‑blocking)
+    non_blocking: true                 # advisors never block the loop
+
+# === Persistence backends ===
+persistence_tools:
+  sqlite:
+    impl: LangGraphSqliteSaver
+    params:
+      path: "outputs/checkpoints.db"
+      check_same_thread: false
+  jsonl:
+    impl: LangGraphJsonlSaver
+    params:
+      path: "outputs/transcript.jsonl"
+      overwrite: false
+  postgres:
+    impl: LangGraphPostgresSaver
+    params:
+      connection_string: "postgresql://localhost:5432/langgraph"
+      overwrite: false
+
+persistence:
+  checkpoints: [sqlite, postgres]      # durable state for resuming runs
+  transcript: [jsonl]                  # human‑readable conversation log
+
+# === Observability / logging ===
+logs:
+  format: pretty                       # pretty | json
+  level: info                          # debug | info | warn | error
+  destination: console                 # console | file | both (runner‑dependent)
+  redact_secrets: true                 # best practice to avoid leaking keys

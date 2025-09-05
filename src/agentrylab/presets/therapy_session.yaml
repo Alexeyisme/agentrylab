@@ -1,0 +1,62 @@
+#########################
+# Therapy Session preset
+# Tips:
+# - Adjust therapist prompt to change depth/length of responses.
+# - Seed a topic with TOPIC to focus the first turn.
+# - Reorder scheduler to have therapist open first if desired.
+#########################
+
+version: "1.0.0"
+id: therapy_session
+name: Therapy Session
+description: A gentle therapist and a reflective client explore thoughts together.
+
+# Optional user seed topic (pinned when enabled)
+objective: ${TOPIC:Take a breath. Start with something on your mind today.}
+
+runtime:
+  max_rounds: 4
+  trace: { enabled: true }
+  scheduler:
+    impl: agentrylab.runtime.scheduler.every_n.EveryNScheduler
+    params:
+      schedule:
+        client: 1
+        therapist: 1
+        summarizer:
+          every_n: 2
+          run_on_last: true
+  message_contract:
+    require_metadata: false
+  context_defaults:
+    pin_objective: true
+
+providers:
+  - id: ollama_llama3
+    impl: agentrylab.runtime.providers.ollama.OllamaProvider
+    model: "llama3:latest"
+    base_url: "http://localhost:11434"
+    timeout: 8
+
+agents:
+  - id: client
+    role: agent
+    provider: ollama_llama3
+    description: The client shares thoughts and feelings
+    system_prompt: |
+      You are the client in a supportive therapy session. Be open and reflective,
+      but you don't need to be strictly on-topic. It's okay to wander.
+  - id: therapist
+    role: agent
+    provider: ollama_llama3
+    description: The therapist offers gentle guidance
+    system_prompt: |
+      You are a gentle therapist. Ask open-ended questions, validate feelings,
+      and guide without strict rules. Encourage insight and self-compassion.
+      Respond in 3–5 sentences and end with one open-ended question.
+  - id: summarizer
+    role: summarizer
+    provider: ollama_llama3
+    description: Summarizes the session highlights
+    system_prompt: "Provide a brief, compassionate summary of the session."
+    max_summary_chars: 500

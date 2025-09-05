@@ -1,0 +1,79 @@
+#########################
+# Stand‑Up Club preset
+# Fun, non‑strict, llama3‑friendly preset.
+# Tips:
+# - Seed a topic with JOKE_TOPIC env var (see `objective`).
+# - Comedians (agents) go every turn; punch_up advisor every 2; MC (summarizer) every 2 and on last.
+# - Prompts avoid asking the user to type; produce standalone bits.
+#########################
+
+version: "1.0.0"
+id: standup_club
+name: Stand‑Up Club
+description: Two comedians riff on a user‑provided topic; a punch‑up advisor chimes in; the MC wraps with a final bit.
+
+# Optional user seed topic (pinned when enabled)
+objective: ${JOKE_TOPIC:Give us a topic and we’ll make it funny.}
+
+runtime:
+  max_rounds: 6
+  trace: { enabled: true }
+  scheduler:
+    impl: agentrylab.runtime.scheduler.every_n.EveryNScheduler
+    params:
+      schedule:
+        comicA: 1
+        comicB: 1
+        punch_up: 2
+        mc:
+          every_n: 2
+          run_on_last: true
+  message_contract:
+    require_metadata: false
+  context_defaults:
+    pin_objective: true
+
+providers:
+  - id: ollama_llama3
+    impl: agentrylab.runtime.providers.ollama.OllamaProvider
+    model: "llama3:latest"
+    base_url: "http://localhost:11434"
+    timeout: 8
+
+agents:
+  - id: comicA
+    role: agent
+    provider: ollama_llama3
+    description: Setups and light punchlines
+    system_prompt: |
+      You are a stand‑up comedian. Craft a short bit (2–4 lines) about the topic.
+      Mix a playful setup with a light punchline. Avoid asking the user to type or respond.
+      Keep it clean(ish), witty, and self‑contained.
+
+  - id: comicB
+    role: agent
+    provider: ollama_llama3
+    description: Tagging and call‑backs
+    system_prompt: |
+      You are a stand‑up comedian riffing off the prior bit. Write 2–4 lines.
+      Reference ONE specific line from comicA's previous bit and add a tag/call‑back.
+      Never leave the output empty. Avoid asking the user to type or respond.
+      Be punchy and self‑contained.
+
+  - id: punch_up
+    role: advisor
+    provider: ollama_llama3
+    description: Non‑blocking punch‑up notes
+    system_prompt: |
+      You are a punch‑up writer. Offer 2–3 ultra‑short bullet tweaks (<10 words each)
+      to sharpen clarity or timing. No meta comments, no audience prompts.
+
+  - id: mc
+    role: summarizer
+    provider: ollama_llama3
+    description: MC wraps the set
+    system_prompt: |
+      You are the MC. Combine the funniest elements into one tight closer.
+      Always write 3–5 COMPLETE sentences; NO bullets, NO references, NO “please respond”.
+      Ignore advisor bullet notes; compose a self‑contained mini‑bit in prose only.
+    max_summary_chars: 500
