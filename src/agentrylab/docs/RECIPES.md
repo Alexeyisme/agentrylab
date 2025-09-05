@@ -123,3 +123,12 @@ for ev in lab.history(limit=20):
 # Or read directly from the store
 rows = lab.store.read_transcript("inspect-1", limit=100)
 ```
+
+User-in-the-loop: post and run 👤
+```
+from agentrylab import init
+
+lab = init("src/agentrylab/presets/user_in_the_loop.yaml", experiment_id="chat-1")
+lab.post_user_message("Hello from Alice!", user_id="user:alice")
+lab.run(rounds=1)  # scheduled user then assistant
+```

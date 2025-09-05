@@ -1,0 +1,57 @@
+#########################
+# Solo Chat (User-in-the-Loop) preset
+# Single assistant with a scheduled user turn before each response.
+# Post messages via CLI/API to let a human steer the chat.
+#   CLI: agentrylab say src/agentrylab/presets/solo_chat_user.yaml demo "Hello!" --user-id user:you
+#   Run: agentrylab run src/agentrylab/presets/solo_chat_user.yaml --thread-id demo --resume --max-iters 1
+#########################
+
+version: "1.0.0"
+id: solo_chat_user
+name: Solo Chat (User Turn)
+description: A friendly assistant that responds after a scheduled user turn each round.
+
+objective: ${CHAT_TOPIC:Say hello and ask a short question to the assistant.}
+
+runtime:
+  trace: { enabled: true }
+  scheduler:
+    impl: agentrylab.runtime.scheduler.round_robin.RoundRobinScheduler
+    params:
+      order: ["user:you", "assistant"]
+  message_contract:
+    require_metadata: false
+  context_defaults:
+    pin_objective: true
+  max_rounds: 10
+
+providers:
+  - id: ollama_llama3
+    impl: agentrylab.runtime.providers.ollama.OllamaProvider
+    model: "llama3:latest"
+    base_url: "http://localhost:11434"
+    temperature: 0.7
+
+tools: []
+advisors: []
+
+agents:
+  - id: "user:you"
+    role: user
+    provider: ollama_llama3  # ignored by runtime for user nodes
+    description: Scheduled user node; consumes queued human messages
+
+  - id: assistant
+    role: agent
+    display_name: "Assistant"
+    description: Friendly conversational assistant
+    provider: ollama_llama3
+    tools: []
+    context:
+      max_messages: 5
+      pin_objective: true
+      running_summary: false
+    system_prompt: |
+      You are a friendly and helpful assistant. React concisely (2–4 lines) to the user's last message.
+      Be conversational and supportive. No questions back; just a self-contained reply unless the user asks.
+

@@ -10,6 +10,13 @@ Commands 🧭
   - Usage: `agentrylab status <preset.yaml> <thread-id>`
 - validate: lint a preset file and print advisory warnings
   - Usage: `agentrylab validate <preset.yaml>`
+- say: append a user message into a thread (user-in-the-loop)
+  - Usage: `agentrylab say <preset.yaml> <thread-id> "message" [--user-id USER]`
+  - Example: `agentrylab say src/agentrylab/presets/user_in_the_loop.yaml demo "Hello agents!"`
+ - ls: list known threads (from the checkpoint store)
+   - Usage: `agentrylab ls <preset.yaml>`
+ - reset: delete checkpoint (and optionally transcript) for a thread
+   - Usage: `agentrylab reset <preset.yaml> <thread-id> [--delete-transcript]`
 
 Run options ⚙️
 - --max-iters INT: Number of engine ticks to execute (default: 8)
@@ -27,6 +34,9 @@ Examples 💡
   - `agentrylab run src/agentrylab/presets/debates.yaml --max-iters 1 --thread-id demo --no-resume`
 - Inspect checkpoint status
   - `agentrylab status src/agentrylab/presets/debates.yaml demo`
+- Post a user message and run one tick
+  - `agentrylab say src/agentrylab/presets/user_in_the_loop.yaml demo "Hi team!"`
+  - `agentrylab run src/agentrylab/presets/user_in_the_loop.yaml --thread-id demo --resume --max-iters 1`
 
 Environment and .env 🔑
 - The CLI loads environment variables from `.env` (if present) via `python-dotenv`
@@ -51,6 +61,13 @@ Persistence 📜💾
   - The engine saves a snapshot after each tick.
   - With `--resume` (default), the CLI merges any saved snapshot into the
     in-memory state before running (best-effort; only dict snapshots are merged).
+
+Clean all outputs 🧹
+- Quick way: delete the outputs root (default location):
+  - `rm -rf outputs/`  (this removes all transcripts and the checkpoints DB)
+- Per-thread loop (safer): reset each listed thread and delete transcripts:
+  - `for tid in $(agentrylab ls src/agentrylab/presets/solo_chat.yaml | awk '{print $1}'); do agentrylab reset src/agentrylab/presets/solo_chat.yaml "$tid" --delete-transcript; done`
+  - Replace the preset path with the one you’re using; `ls` reads from the checkpoint DB to enumerate threads.
 
 What to expect in transcript JSONL 🧾
 - Each line is a JSON object with fields like:

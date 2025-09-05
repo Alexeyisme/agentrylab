@@ -8,6 +8,9 @@
 # Agentry Lab — Multi‑Agent Orchestration for Experiments
 **Serious tooling, delightfully unserious outcomes.** 😏
 
+> New: Let humans heckle the agents. Schedule user turns and poke the room via CLI/API. Try:
+> `agentrylab say src/agentrylab/presets/user_in_the_loop.yaml demo "Hello!"` then `agentrylab run src/agentrylab/presets/user_in_the_loop.yaml --thread-id demo --resume --max-iters 1` 🎤
+
 A lightweight, hackable lab for building and evaluating multi‑agent workflows.
 Define your lab room (agents, tools, providers, schedules) in YAML, then run and
 iterate quickly from the CLI or Python. Stream outputs, save transcripts, stash
@@ -30,6 +33,7 @@ checkpoints — because sometimes you want agents to argue… on purpose.
 - 📡 **Streaming CLI** with resume support and transcript/DB persistence (forget nothing, replay everything)
 - ⏳ **Smart budgets** for tools (per‑run/per‑iteration) with shared‑per‑tick semantics (no more runaway tool spam)
 - 🧩 **Small, readable runtime**: nodes, scheduler, engine, state (batteries included, drama optional)
+- 🫵 **Human‑in‑the‑loop turns**: schedule `user` nodes and poke runs from CLI/API (`agentrylab say …`)
 
 ## 📋 Requirements
 
@@ -88,6 +92,26 @@ JOKE_TOPIC="remote work" agentrylab run src/agentrylab/presets/standup_club.yaml
 agentrylab run src/agentrylab/presets/debates.yaml --max-iters 4 --thread-id demo
 ```
 
+### User Messages (User-in-the-Loop)
+Let a human chime in via API or CLI, and optionally schedule a user turn in cadence.
+
+```bash
+# 1) Post a user message into a thread
+agentrylab say src/agentrylab/presets/user_in_the_loop.yaml demo "Hello from Alice!"
+
+# 2) Run one iteration to consume it (user turn then assistant)
+agentrylab run src/agentrylab/presets/user_in_the_loop.yaml --thread-id demo --resume --max-iters 1
+```
+
+Python API:
+```python
+from agentrylab import init
+
+lab = init("src/agentrylab/presets/user_in_the_loop.yaml", experiment_id="demo")
+lab.post_user_message("Hello from Alice!", user_id="user:alice")
+lab.run(rounds=1)
+```
+
 ### Python API Quickstart
 Orchestrate from Python with minimal fuss:
 
@@ -118,6 +142,10 @@ lab.run(rounds=2)
 threads = list_threads("src/agentrylab/presets/solo_chat.yaml")
 ```
 
+Python examples:
+- `user_in_the_loop_quick.py` — post once and run N rounds
+- `user_in_the_loop_interactive.py` — type a line, run a round, repeat
+
 > **📝 Note**: Output streams each iteration ("=== New events ===") and prints a final tail
 > of the last N transcript entries. Transcripts are written to `outputs/*.jsonl`
 > and checkpoints to `outputs/checkpoints.db`.
@@ -144,6 +172,10 @@ agentrylab ls <preset.yaml>
 - `--resume/--no-resume`: Resume from checkpoint or start fresh (default: resume)
 
 > **📚 Full docs**: See `src/agentrylab/docs/CLI.md` for complete command reference.
+
+User-in-the-loop:
+- `agentrylab say <preset.yaml> <thread-id> "message" [--user-id USER]` appends a user message into a thread.
+- Works with scheduled user nodes (role `user`) so messages are consumed on their turns.
 
 ## ⚙️ Configuration
 
@@ -227,6 +259,20 @@ Have fun out of the box — **llama3‑friendly** and non‑strict by default.
 > **💡 Pro tip**: Start with **Solo Chat** for testing, then try **Stand‑Up Club** for fun!  
 > **📚 More tips**: See `src/agentrylab/docs/PRESET_TIPS.md` for advanced configuration.
 
+### 👤 User in the Loop (`user_in_the_loop.yaml`) — Human turn in the cadence
+- What: A scheduled `user` node consumes queued user messages before the assistant
+- Best for: Interactive runs where a human can steer between turns
+- Try:
+  - `agentrylab say src/agentrylab/presets/user_in_the_loop.yaml demo "Hi agents!"`
+  - `agentrylab run src/agentrylab/presets/user_in_the_loop.yaml --thread-id demo --resume --max-iters 1`
+
+### 🗣️ Solo Chat (User Turn) (`solo_chat_user.yaml`) — Classic chat with a scheduled user
+- What: A scheduled `user` node (`user:you`) before a single assistant
+- Best for: Simple human-steered chats using local models (llama3)
+- Try:
+  - `agentrylab say src/agentrylab/presets/solo_chat_user.yaml demo "Hello!" --user-id user:you`
+  - `agentrylab run src/agentrylab/presets/solo_chat_user.yaml --thread-id demo --resume --max-iters 1`
+
 ## 💰 Tool Budgets
 
 Control how many times tools can be called to prevent runaway costs:
@@ -245,6 +291,10 @@ Control how many times tools can be called to prevent runaway costs:
 - **⏭️ Resume**: `--resume` (default) continues from last checkpoint; `--no-resume` starts fresh
 - **🧠 Schemas**: See `src/agentrylab/docs/PERSISTENCE.md` for detailed field definitions
 - **⏱️ Timestamps**: All recorded as Unix epoch seconds (UTC)
+
+### Cleaning outputs (all threads)
+- Remove everything (default paths): `rm -rf outputs/`
+- Or per-thread: `agentrylab ls <preset.yaml>` then `agentrylab reset <preset.yaml> <thread-id> --delete-transcript`
 
 ## 🏗️ Architecture (at a glance)
 
@@ -290,6 +340,16 @@ print(f"Iterations: {status.iter}, Active: {status.is_active}")
 # View conversation history
 for msg in lab.state.history:
     print(f"[{msg['role']}]: {msg['content']}")
+```
+
+### Posting User Messages
+```python
+from agentrylab import init
+
+lab = init("src/agentrylab/presets/user_in_the_loop.yaml", experiment_id="chat-1")
+# Append a user line into history and transcript; also enqueue for scheduled user nodes
+lab.post_user_message("Please keep it concise.", user_id="user:alice")
+lab.run(rounds=1)
 ```
 
 ### One-shot Run with Streaming
