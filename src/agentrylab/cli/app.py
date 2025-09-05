@@ -260,6 +260,21 @@ def list_threads_cmd(
         typer.echo(f"{tid}\t{dt}")
 
 
+@app.command("say")
+def say_cmd(
+    preset: Path = typer.Argument(..., exists=True, readable=True, help="Path to YAML preset"),
+    thread_id: str = typer.Argument(..., help="Thread id to post into"),
+    message: str = typer.Argument(..., help="User message to append"),
+    user_id: str = typer.Option("user", help="Logical user id (default: 'user')"),
+) -> None:
+    """Append a user message into a thread's history (and transcript)."""
+    _load_env()
+    cfg = load_config(str(preset))
+    lab = init_lab(cfg, thread_id=thread_id, resume=True)
+    lab.post_user_message(message, user_id=user_id)
+    typer.echo(f"Appended user message to thread '{thread_id}' as {user_id}.")
+
+
 def main() -> None:  # pragma: no cover
     app()
 

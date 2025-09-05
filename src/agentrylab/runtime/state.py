@@ -65,6 +65,9 @@ class State:
         # Per-tool counts for the current iteration
         self._tool_calls_iter_by_id: Dict[str, int] = {}
 
+        # User input queues (per user id)
+        self._user_inputs: Dict[str, List[str]] = {}
+
     # ------------------------------------------------------------------
     # Message building for providers
     # ------------------------------------------------------------------
@@ -243,6 +246,22 @@ class State:
         For MVP, we just update the running_summary; the engine already persisted the original.
         """
         self.running_summary = content
+
+    # ------------------------------------------------------------------
+    # User input queue (used by user-injection features and UserNode)
+    # ------------------------------------------------------------------
+    def enqueue_user_message(self, user_id: str, content: str) -> None:
+        """Enqueue a user message to be consumed by user turns or injected immediately."""
+        self._user_inputs.setdefault(user_id, []).append(str(content))
+
+    def has_user_input(self, user_id: str) -> bool:
+        return bool(self._user_inputs.get(user_id))
+
+    def pop_user_input(self, user_id: str) -> Optional[str]:
+        queue = self._user_inputs.get(user_id) or []
+        if queue:
+            return queue.pop(0)
+        return None
 
     # ------------------------------------------------------------------
     # Budgets: per-run / per-iteration (global and per-tool-id)
