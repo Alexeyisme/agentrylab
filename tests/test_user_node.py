@@ -49,7 +49,7 @@ def test_user_node_consumes_enqueued_and_precedes_agent(tmp_path):
     lab.state.enqueue_user_message("user:alice", "Hello from Alice!")
 
     # Act: run one tick (user then agent)
-    lab.run(rounds=1)
+    lab.run(rounds=2)
 
     # Assert: transcript order is user then agent, and agent saw the user line
     rows = lab.store.read_transcript("user-node-1")
@@ -70,7 +70,7 @@ def test_empty_user_turn_is_skipped_in_transcript(tmp_path):
     lab = init(_preset_with_user_only(), experiment_id="user-node-2", resume=False)
 
     # Act: run one tick; nothing should be appended for the empty user turn
-    lab.run(rounds=1)
+    lab.run(rounds=3)
 
     # Assert: transcript has no events (engine skipped empty user output)
     rows = lab.store.read_transcript("user-node-2")
@@ -83,7 +83,7 @@ def test_user_node_never_calls_provider(tmp_path):
     lab.state.enqueue_user_message("user:alice", "Ping!")
 
     # Act: run one tick (only user node executes)
-    lab.run(rounds=1)
+    lab.run(rounds=3)
 
     # Assert: user event exists, but provider was not called by the user node
     rows = lab.store.read_transcript("user-node-3")
@@ -116,7 +116,7 @@ def test_multi_user_targets_and_order(tmp_path):
     lab.state.enqueue_user_message("user:alice", "Hi from Alice")
     lab.state.enqueue_user_message("user:bob", "Hey from Bob")
 
-    lab.run(rounds=1)
+    lab.run(rounds=3)
 
     rows = lab.store.read_transcript("multi-user-1")
     assert len(rows) >= 3

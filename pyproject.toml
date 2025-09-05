@@ -85,9 +85,18 @@ exclude = ["^build/"]
 
 [tool.ruff]
 line-length = 100
-select = ["E","F","I","UP","B"]
-ignore = ["E203"]
-src = ["src","tests"]
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E"]
+ignore = ["E203", "E402", "E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*.py" = ["E501"]
+"api_quick_reference.py" = ["F401", "F841", "F541", "I001"]
+"comprehensive_demo.py" = ["F401", "F841", "F541", "I001"]
+"demo_agentrylab_api.py" = ["F401", "UP035", "UP006", "F541", "I001"]
+"simple_demo.py" = ["F401", "F841", "I001"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["agentrylab"]

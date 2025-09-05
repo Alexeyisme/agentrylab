@@ -11,7 +11,7 @@ Requires: a model provider configured in the preset (e.g., Ollama llama3).
 from __future__ import annotations
 
 import argparse
-from typing import Any, Dict
+from typing import Any
 
 from agentrylab import init
 

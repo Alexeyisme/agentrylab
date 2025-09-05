@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
 import time
-from typing import Any, Dict, List, Mapping, TypedDict, Union, Optional, cast
-
+from abc import ABC, abstractmethod
+from typing import Any, Dict, List, Mapping, TypedDict, Union, cast
 
 # ----------------------------- Public types ------------------------------
 
@@ -67,7 +66,6 @@ class Tool(ABC):
         retries: int = int(kwargs.pop("retries", self.params.get("retries", 0)))
         backoff: float = float(kwargs.pop("backoff", self.params.get("backoff", 0.3)))
 
-        last_err: Optional[BaseException] = None
         attempt = 0
         while attempt <= retries:
             try:
@@ -89,7 +87,6 @@ class Tool(ABC):
                     out["error"] = error  # type: ignore[index]
                 return out
             except (ToolError, Exception) as e:
-                last_err = e
                 if attempt >= retries:
                     # Final failure → normalized error envelope
                     msg = str(e) if isinstance(e, ToolError) else f"internal-error: {e}"

@@ -8,7 +8,6 @@ presets in your repository.
 """
 
 from importlib.resources import files
-from typing import Union
 
 
 def path(name: str) -> str:
