@@ -9,7 +9,7 @@
 **Serious tooling, delightfully unserious outcomes.** 😏
 
 > New: Let humans heckle the agents. Schedule user turns and poke the room via CLI/API. Try:
-> `agentrylab say user_in_the_loop.yaml demo "Hello!"` then `agentrylab run user_in_the_loop.yaml --thread-id demo --resume --max-iters 1` 🎤
+> `agentrylab say user_in_the_loop.yaml demo 'Hello!'` then `agentrylab run user_in_the_loop.yaml --thread-id demo --resume --max-iters 1` 🎤
 
 A lightweight, hackable lab for building and evaluating multi‑agent workflows.
 Define your lab room (agents, tools, providers, schedules) in YAML, then run and
@@ -103,7 +103,7 @@ Let a human chime in via API or CLI, and optionally schedule a user turn in cade
 
 ```bash
 # 1) Post a user message into a thread
-agentrylab say user_in_the_loop.yaml demo "Hello from Alice!"
+agentrylab say user_in_the_loop.yaml demo 'Hello from Alice!'
 
 # 2) Run one iteration to consume it (user turn then assistant)
 agentrylab run user_in_the_loop.yaml --thread-id demo --resume --max-iters 1
@@ -180,7 +180,7 @@ agentrylab ls <preset.yaml>
 > **📚 Full docs**: See `src/agentrylab/docs/CLI.md` for complete command reference.
 
 User-in-the-loop:
-- `agentrylab say <preset.yaml> <thread-id> "message" [--user-id USER]` appends a user message into a thread.
+- `agentrylab say <preset.yaml> <thread-id> 'message' [--user-id USER]` appends a user message into a thread.
 - Works with scheduled user nodes (role `user`) so messages are consumed on their turns.
 
 ## ⚙️ Configuration
@@ -269,14 +269,14 @@ Have fun out of the box — **llama3‑friendly** and non‑strict by default.
 - What: A scheduled `user` node consumes queued user messages before the assistant
 - Best for: Interactive runs where a human can steer between turns
 - Try:
-  - `agentrylab say user_in_the_loop.yaml demo "Hi agents!"`
+  - `agentrylab say user_in_the_loop.yaml demo 'Hi agents!'`
   - `agentrylab run user_in_the_loop.yaml --thread-id demo --resume --max-iters 1`
 
 ### 🗣️ Solo Chat (User Turn) (`solo_chat_user.yaml`) — Classic chat with a scheduled user
 - What: A scheduled `user` node (`user:you`) before a single assistant
 - Best for: Simple human-steered chats using local models (llama3)
 - Try:
-  - `agentrylab say solo_chat_user.yaml demo "Hello!" --user-id user:you`
+  - `agentrylab say solo_chat_user.yaml demo 'Hello!' --user-id user:you`
   - `agentrylab run solo_chat_user.yaml --thread-id demo --resume --max-iters 1`
 
 ## 💰 Tool Budgets
