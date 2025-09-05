@@ -1,0 +1,137 @@
+#########################
+# Simple Argument preset
+# Two llama3 agents having a natural debate without strict rules.
+# No JSON requirements, no metadata constraints - just pure argumentation.
+#########################
+
+version: "1.0.0"
+id: argue
+name: Simple Argument
+description: Two agents having a natural debate on any topic without strict constraints.
+
+# Optional user seed topic
+objective: ${DEBATE_TOPIC:Choose a topic and let's debate it!}
+
+runtime:
+  message_contract:
+    require_metadata: false         # No metadata requirements
+    min_citations: 0                # No citation requirements
+  logs:
+    level: INFO
+  trace:
+    enabled: true
+  max_rounds: 8                     # Reasonable debate length
+  scheduler:
+    impl: agentrylab.runtime.scheduler.every_n.EveryNScheduler
+    params:
+      schedule:
+        agent1: 1                   # First agent speaks every turn
+        agent2: 1                   # Second agent speaks every turn
+  allow_parallel_tools: false       # Keep it simple
+  fail_open_on_tool_error: true     # Don't fail on tool errors
+  default_timeout_s: 30             # Shorter timeout for faster responses
+  strict_budget: false              # Don't enforce strict budgets
+
+# Simple room rules - no strict requirements
+room_rules:
+  topic_focus_threshold: 0.8        # Very lenient drift threshold
+  require_urls_for_factual_claims: false
+  min_urls_per_side: 0
+  max_message_len: 200              # Reasonable length limit
+  evidence_first_policy: false      # No requirement to search first
+
+# Defaults for all agents
+context_defaults:
+  pin_objective: true               # Keep topic in mind
+  pin_system_prompt: true           # Maintain role
+
+# No moderation - let them argue freely
+moderation:
+  step_back:
+    allow: false                    # No rollbacks, keep it simple
+
+# Simple provider setup
+providers:
+  - id: ollama_llama3
+    impl: agentrylab.runtime.providers.ollama.OllamaProvider
+    model: "llama3:latest"
+    base_url: "http://localhost:11434"
+    temperature: 0.8                # Higher temperature for more creative arguments
+    options:
+      num_ctx: 4096
+      top_p: 0.9
+      repeat_penalty: 1.1
+  - id: openai_gpt4o_mini
+    impl: agentrylab.runtime.providers.openai.OpenAIProvider
+    model: "gpt-4o-mini"
+    api_key: ${OPENAI_API_KEY}
+    temperature: 0.8
+
+# No tools - keep it pure argumentation
+tools: []
+
+# No advisors - just the two debaters
+advisors: []
+
+# The two arguing agents
+agents:
+  - id: agent1
+    role: agent
+    display_name: "Agent 1"
+    description: First arguing agent
+    provider: ollama_llama3
+    tools: []                       # No tools, just pure argumentation
+    context:
+      max_messages: 4               # Keep recent context
+      pin_objective: true
+      running_summary: false        # No summaries, keep it simple
+    system_prompt: |
+      You are Agent 1 in a debate. Your goal is to argue your position on the given topic.
+      
+      RULES:
+      - Be passionate but respectful
+      - Make clear, logical points
+      - Respond to your opponent's arguments
+      - Keep responses under 200 words
+      - Stay focused on the topic
+      - Be creative and engaging
+      
+      You can take any position on the topic - just argue it well!
+
+  - id: agent2
+    role: agent
+    display_name: "Agent 2"
+    description: Second arguing agent
+    provider: openai_gpt4o_mini
+    tools: []                       # No tools, just pure argumentation
+    context:
+      max_messages: 4               # Keep recent context
+      pin_objective: true
+      running_summary: false        # No summaries, keep it simple
+    system_prompt: |
+      You are Agent 2 in a debate. You must argue AGAINST Agent 1's position.
+      
+      CRITICAL: You MUST respond with your own argument. Do not leave empty responses.
+      
+      RULES:
+      - Take the OPPOSITE position from Agent 1
+      - Be passionate but respectful
+      - Make clear, logical points
+      - Respond to your opponent's arguments
+      - Keep responses under 200 words
+      - Stay focused on the topic
+      - Be creative and engaging
+      
+      EXAMPLE: If Agent 1 says "remote work is good", you argue "remote work has problems"
+      
+      You MUST provide a response every turn!
+
+# No persistence - keep it simple
+persistence: {}
+
+# Simple logging
+logs:
+  format: pretty
+  level: info
+  destination: console
+  redact_secrets: true

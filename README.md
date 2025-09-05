@@ -5,327 +5,462 @@
   <a href="https://pypi.org/project/agentrylab/"><img alt="License" src="https://img.shields.io/pypi/l/agentrylab.svg" /></a>
 </p>
 
-Agentry Lab — Multi‑Agent Orchestration for Experiments
-Serious tooling, delightfully unserious outcomes. 😏
+# Agentry Lab — Multi‑Agent Orchestration for Experiments
+**Serious tooling, delightfully unserious outcomes.** 😏
 
 A lightweight, hackable lab for building and evaluating multi‑agent workflows.
 Define your lab room (agents, tools, providers, schedules) in YAML, then run and
 iterate quickly from the CLI or Python. Stream outputs, save transcripts, stash
 checkpoints — because sometimes you want agents to argue… on purpose.
 
-Highlights ✨
-Because single agents are boring.
-- 📦 YAML‑first presets for agents/advisors/moderator/summarizer (your config, your rules)
-- 🔌 Pluggable LLM providers (OpenAI, Ollama) and tools (ddgs, Wolfram Alpha)
-- 📡 Streaming CLI with resume support and transcript/DB persistence (forget nothing, replay everything)
-- ⏳ Budgets for tools (per‑run/per‑iteration) with shared‑per‑tick semantics (no more runaway tool spam)
-- 🧩 Small, readable runtime: nodes, scheduler, engine, state (batteries included, drama optional)
+## 🚀 Get Started in 2 Minutes
 
-Requirements
-- 🐍 Python 3.11+
-- 🧰 A virtualenv (recommended; sanity‑preserving)
-- 🖥️ Optional: Ollama for local models (default base URL `http://localhost:11434`)
-- 🔑 API keys as needed (e.g., `OPENAI_API_KEY`, `WOLFRAM_APP_ID`) — bring your own secrets
+1. **Install**: `pip install agentrylab` (or see installation below)
+2. **Run**: `agentrylab run src/agentrylab/presets/solo_chat.yaml --max-iters 3`
+3. **Done!** Watch your agents chat away! 🎉
 
-Install (editable)
+> **💡 New to multi-agent systems?** Start with **Solo Chat** - it's perfect for beginners and works great with local models like Ollama/llama3!
+
+## ✨ Why AgentryLab?
+
+**Because single agents are boring.** 🤖
+
+- 📦 **YAML‑first presets** for agents/advisors/moderator/summarizer (your config, your rules)
+- 🔌 **Pluggable LLM providers** (OpenAI, Ollama) and tools (ddgs, Wolfram Alpha)
+- 📡 **Streaming CLI** with resume support and transcript/DB persistence (forget nothing, replay everything)
+- ⏳ **Smart budgets** for tools (per‑run/per‑iteration) with shared‑per‑tick semantics (no more runaway tool spam)
+- 🧩 **Small, readable runtime**: nodes, scheduler, engine, state (batteries included, drama optional)
+
+## 📋 Requirements
+
+- 🐍 **Python 3.11+**
+- 🧰 **Virtual environment** (recommended; sanity‑preserving)
+- 🖥️ **Optional: Ollama** for local models (default: `http://localhost:11434`)
+- 🔑 **API keys** as needed (e.g., `OPENAI_API_KEY`, `WOLFRAM_APP_ID`) — bring your own secrets
+
+## 💾 Installation
+
+### Option 1: From PyPI (Recommended)
+```bash
+pip install agentrylab
 ```
+
+### Option 2: From Source (Development)
+```bash
+git clone https://github.com/Alexeyisme/agentrylab.git
+cd agentrylab
 python -m venv .venv
-. .venv/bin/activate
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 pip install -U pip
 pip install -e .
 ```
 
-Environment (.env)
-Create a `.env` file (loaded via `python-dotenv`) with any secrets:
-```
+## 🔧 Environment Setup
+
+Create a `.env` file (loaded via `python-dotenv`) with any secrets you need:
+
+```bash
+# For OpenAI models (optional)
 OPENAI_API_KEY=sk-...
+
+# For Wolfram Alpha (optional)
 WOLFRAM_APP_ID=...
+
+# For Ollama (optional, defaults to localhost:11434)
 OLLAMA_BASE_URL=http://localhost:11434
 ```
 
-Quickstart (CLI) 🚀
-Spin up a room and let the sparks fly.
-```
-.venv/bin/agentrylab run src/agentrylab/presets/debates.yaml \
-  --max-iters 4 --thread-id demo --show-last 10
+> **💡 Pro tip**: You can start with just Ollama (free, local) and add API keys later!
+
+## 🚀 Quick Start
+
+### CLI Quickstart
+Spin up a room and let the sparks fly:
+
+```bash
+# Simple chat (works with Ollama/llama3)
+agentrylab run src/agentrylab/presets/solo_chat.yaml --max-iters 3
+
+# Or with a custom topic
+JOKE_TOPIC="remote work" agentrylab run src/agentrylab/presets/standup_club.yaml --max-iters 4
+
+# Or a debate (needs OpenAI API key)
+agentrylab run src/agentrylab/presets/debates.yaml --max-iters 4 --thread-id demo
 ```
 
-Quickstart (Python API) 🐍
-Orchestrate from Python with minimal fuss.
+### Python API Quickstart
+Orchestrate from Python with minimal fuss:
+
 ```python
-from agentrylab import init
-from agentrylab.presets import path as preset_path
+from agentrylab import init, list_threads
 
-lab = init(preset_path("debates.yaml"), experiment_id="demo")
+# 1. Create lab (using solo_chat preset - perfect for llama3!)
+lab = init("src/agentrylab/presets/solo_chat.yaml", 
+           experiment_id="my-chat",
+           prompt="Tell me about your favorite hobby!")
+
+# 2. Run with callback
+def callback(event):
+    if event.get("event") == "provider_result":
+        print(f"Agent responded: {event.get('content_len', 0)} chars")
+
+status = lab.run(rounds=3, stream=True, on_event=callback)
+
+# 3. Show conversation
+for msg in lab.state.history:
+    print(f"[{msg['role']}]: {msg['content']}")
+
+# 4. Resume with new topic
+lab.state.objective = "Now tell me about your dream vacation!"
 lab.run(rounds=2)
+
+# 5. List threads
+threads = list_threads("src/agentrylab/presets/solo_chat.yaml")
 ```
-See the “Python API” section below for full details and streaming options (callbacks, timeouts, early‑stops).
-Output streams each iteration ("=== New events ===") and prints a final tail
-of the last N transcript entries. Transcripts are written to `outputs/*.jsonl`
-and checkpoints to `outputs/checkpoints.db`.
 
-CLI
-- Run a preset
-  - `agentrylab run <preset.yaml> [--thread-id ID] [--max-iters N] [--stream/--no-stream] [--resume/--no-resume] [--show-last K]`
-- Inspect a thread’s checkpoint
-  - `agentrylab status <preset.yaml> <thread-id>`
- - List all known threads
-   - `agentrylab ls <preset.yaml>`
+> **📝 Note**: Output streams each iteration ("=== New events ===") and prints a final tail
+> of the last N transcript entries. Transcripts are written to `outputs/*.jsonl`
+> and checkpoints to `outputs/checkpoints.db`.
 
-See `src/agentrylab/docs/CLI.md` for full command docs.
+## 🖥️ CLI Commands
 
-Configuration ⚙️
+### Basic Commands
+```bash
+# Run a preset
+agentrylab run <preset.yaml> [--thread-id ID] [--max-iters N] [--show-last K]
+
+# Inspect a thread's checkpoint
+agentrylab status <preset.yaml> <thread-id>
+
+# List all known threads
+agentrylab ls <preset.yaml>
+```
+
+### Common Options
+- `--max-iters N`: Run for N iterations (default: varies by preset)
+- `--thread-id ID`: Use specific thread ID (enables resume)
+- `--show-last K`: Show last K messages at the end
+- `--stream/--no-stream`: Enable/disable real-time streaming (default: enabled)
+- `--resume/--no-resume`: Resume from checkpoint or start fresh (default: resume)
+
+> **📚 Full docs**: See `src/agentrylab/docs/CLI.md` for complete command reference.
+
+## ⚙️ Configuration
+
 Describe your room in YAML; everything else clicks into place.
-- Presets live under `src/agentrylab/presets/` (see `debates.yaml`).
-- Providers: OpenAI (HTTP), Ollama; add your own under `runtime/providers`.
-- Tools: `ddgs` search, Wolfram Alpha; add your own under `runtime/tools`.
-- Scheduler: Round‑robin and Every‑N; build your own in `runtime/scheduler`.
 
-Presets 🎭
-Have fun out of the box — llama3‑friendly and non‑strict by default.
+- **Presets** live under `src/agentrylab/presets/` (see examples below)
+- **Providers**: OpenAI (HTTP), Ollama; add your own under `runtime/providers`
+- **Tools**: `ddgs` search, Wolfram Alpha; add your own under `runtime/tools`
+- **Scheduler**: Round‑robin and Every‑N; build your own in `runtime/scheduler`
 
-- Stand‑Up Club (`standup_club.yaml`): two comedians riff on a topic, a punch‑up advisor adds tweaks, and the MC closes the set.
-  - Seed a topic: `JOKE_TOPIC="airports"`
-  - Cadence (Every‑N): `comicA`/`comicB` every turn, `punch_up` every 2, `mc` every 2 (run on last)
-  - Run: `agentrylab run src/agentrylab/presets/standup_club.yaml --max-iters 6 --thread-id standup-1 --show-last 20`
+## 🎭 Built-in Presets
 
-- Drifty Thoughts (`drifty_thoughts.yaml`): three “thinkers” drift playfully; a gentle advisor nudges; optional summarizer digests.
-  - Seed a topic: `TOPIC="surprising ideas"`
-  - Cadence (Every‑N): thinkers every turn, advisor every 2, summarizer every 3 (run on last)
-  - Tip: prompts avoid asking for user input; outputs are standalone prose
+Have fun out of the box — **llama3‑friendly** and non‑strict by default.
 
-- Research Collaboration (`research.yaml`): two scientists brainstorm, a style coach gives clarity bullets, moderator emits JSON actions, summarizer keeps things readable.
-  - Seed a topic: `TOPIC="curious scientific question"`
-  - Cadence (Every‑N): scientists every turn; style_coach/moderator every 2; summarizer every 2 (run on last)
-  - Tip: moderator includes a JSON exemplar to improve compliance; style coach gives ultra‑short bullets
+### 🎤 **Solo Chat** (`solo_chat.yaml`) - **Perfect for beginners!**
+- **What**: Single friendly agent ready to chat about anything
+- **Best for**: Testing, simple conversations, llama3 users
+- **Run**: `agentrylab run src/agentrylab/presets/solo_chat.yaml --max-iters 3`
+- **Topic**: `CHAT_TOPIC="your topic"`
 
-- Therapy Session (`therapy_session.yaml`): a reflective client and gentle therapist; summarizer offers a compassionate wrap‑up.
-  - Seed a topic: `TOPIC="something on your mind"`
-  - Cadence (Every‑N): client/therapist every turn; summarizer every 2 (run on last)
-  - Tip: therapist responds in 3–5 sentences and ends with one open question
+### 🎭 **Stand‑Up Club** (`standup_club.yaml`) - **Comedy gold!**
+- **What**: Two comedians riff on a topic, punch‑up advisor adds tweaks, MC closes the set
+- **Best for**: Entertainment, creative writing, humor
+- **Run**: `JOKE_TOPIC="airports" agentrylab run src/agentrylab/presets/standup_club.yaml --max-iters 6`
+- **Topic**: `JOKE_TOPIC="your topic"`
 
-- DDG Quick Summary (`ddg_quick_summary.yaml`): one agent searches DuckDuckGo and writes a 5‑bullet web summary with URLs.
-  - Seed a topic: `SUMMARY_TOPIC="your topic"`
-  - Cadence: single agent speaks once (tool call + summary)
-  - Tip: good “starter” preset to test tools with llama3
+### 🧠 **Drifty Thoughts** (`drifty_thoughts.yaml`) - **Free-form thinking**
+- **What**: Three "thinkers" drift playfully; gentle advisor nudges; optional summarizer
+- **Best for**: Creative brainstorming, philosophical discussions
+- **Run**: `TOPIC="surprising ideas" agentrylab run src/agentrylab/presets/drifty_thoughts.yaml`
+- **Topic**: `TOPIC="your topic"`
 
-- Small Talk (`small_talk.yaml`): two friendly voices chat; a host recaps every few turns.
-  - Seed a topic: `SMALL_TALK_TOPIC="coffee rituals"`
-  - Cadence (Every‑N): `pal`/`friend` every turn; `host` every 3 (run on last)
-  - Tip: configured for `gpt‑4o‑mini` by default; swap provider to llama3 if you prefer local
+### 🔬 **Research Collaboration** (`research.yaml`) - **Academic vibes**
+- **What**: Two scientists brainstorm, style coach gives clarity, moderator emits JSON actions
+- **Best for**: Research, academic discussions, structured thinking
+- **Run**: `TOPIC="curious scientific question" agentrylab run src/agentrylab/presets/research.yaml`
+- **Topic**: `TOPIC="your topic"`
 
-- Brainstorm Buddies (`brainstorm_buddies.yaml`): two idea buddies riff; a scribe pulls a shortlist.
-  - Seed a topic: `BRAINSTORM_TOPIC="rainy day activities"`
-  - Cadence (Every‑N): `buddyA`/`buddyB` every turn; `scribe` every 3 (run on last)
-  - Tip: buddies write short lines; scribe outputs a clean shortlist (no bullets)
+### 🛋️ **Therapy Session** (`therapy_session.yaml`) - **Compassionate chat**
+- **What**: Reflective client and gentle therapist; summarizer offers compassionate wrap‑up
+- **Best for**: Emotional discussions, self-reflection, supportive conversations
+- **Run**: `TOPIC="something on your mind" agentrylab run src/agentrylab/presets/therapy_session.yaml`
+- **Topic**: `TOPIC="your topic"`
 
-- Follow‑Up Q&A (`follow_up.yaml`): explainer → interviewer → explainer → interviewer → summarizer.
-  - Seed a topic: `FOLLOWUP_TOPIC="solar panels at home"`
-  - Cadence (Round‑Robin, exact order): explainer → interviewer → explainer → interviewer → summarizer
-  - Tip: simple 5‑turn Q&A flow with a tidy wrap‑up
+### 🔍 **DDG Quick Summary** (`ddg_quick_summary.yaml`) - **Web research**
+- **What**: One agent searches DuckDuckGo and writes a 5‑bullet web summary with URLs
+- **Best for**: Quick research, web summaries, fact-finding
+- **Run**: `SUMMARY_TOPIC="your topic" agentrylab run src/agentrylab/presets/ddg_quick_summary.yaml`
+- **Topic**: `SUMMARY_TOPIC="your topic"`
 
-See more tips: `src/agentrylab/docs/PRESET_TIPS.md`
+### ☕ **Small Talk** (`small_talk.yaml`) - **Casual chat**
+- **What**: Two friendly voices chat; host recaps every few turns
+- **Best for**: Casual conversations, social interactions
+- **Run**: `SMALL_TALK_TOPIC="coffee rituals" agentrylab run src/agentrylab/presets/small_talk.yaml`
+- **Topic**: `SMALL_TALK_TOPIC="your topic"`
 
-Budgets (Tools)
-- `per_run_max`: total calls per tool id across the run
-- `per_iteration_max`: calls per engine tick (counters reset each tick)
-- Scope: enforced per tool id, shared across agents that act in the same tick
-- Minima (`per_run_min`, `per_iteration_min`) are advisory (not enforced);
-  useful for prompting and analysis
+### 💡 **Brainstorm Buddies** (`brainstorm_buddies.yaml`) - **Idea generation**
+- **What**: Two idea buddies riff; scribe pulls a shortlist
+- **Best for**: Brainstorming, creative ideation, problem-solving
+- **Run**: `BRAINSTORM_TOPIC="rainy day activities" agentrylab run src/agentrylab/presets/brainstorm_buddies.yaml`
+- **Topic**: `BRAINSTORM_TOPIC="your topic"`
 
-Persistence 📜💾
-Transcripts for storytelling; checkpoints for recovery.
-- 📜 Transcript JSONL: default `outputs/<thread-id>.jsonl`
-- 💾 Checkpoints (SQLite): default `outputs/checkpoints.db`
-- ⏭️ Resume: `run --resume` (default) merges the saved snapshot into state before
-  running; `--no-resume` starts fresh for that thread id.
-- 🧠 Schemas and field definitions: see `src/agentrylab/docs/PERSISTENCE.md`
-- ⏱️ Timekeeping: all timestamps are recorded as Unix epoch seconds (UTC)
+### ❓ **Follow‑Up Q&A** (`follow_up.yaml`) - **Structured interviews**
+- **What**: Explainer → interviewer → explainer → interviewer → summarizer
+- **Best for**: Educational content, interviews, structured Q&A
+- **Run**: `FOLLOWUP_TOPIC="solar panels at home" agentrylab run src/agentrylab/presets/follow_up.yaml`
+- **Topic**: `FOLLOWUP_TOPIC="your topic"`
 
-Architecture (at a glance)
-- Engine: steps the scheduler, executes nodes, applies outputs/actions
-- Nodes: Agent, Moderator, Summarizer, Advisor (see `runtime/nodes/*`)
-- Providers: thin HTTP adapters (OpenAI, Ollama)
-- Tools: simple callables with normalized envelopes (e.g., ddgs)
-- State: history window composition, budgets, message contracts, rollback
+### 🏛️ **Debates** (`debates.yaml`) - **Formal arguments**
+- **What**: Pro/con debaters with moderator and evidence-based arguments
+- **Best for**: Formal debates, argument analysis, structured discussions
+- **Run**: `agentrylab run src/agentrylab/presets/debates.yaml --max-iters 4`
+- **Note**: Requires OpenAI API key for best results
 
-Development 🧑‍💻
-Serious tooling for serious… tinkering.
-```
+### 🗣️ **Simple Argument** (`argue.yaml`) - **Casual debates**
+- **What**: Two agents having a natural debate without strict rules
+- **Best for**: Casual arguments, opinion discussions, llama3 users
+- **Run**: `DEBATE_TOPIC="Should remote work become standard?" agentrylab run src/agentrylab/presets/argue.yaml`
+- **Topic**: `DEBATE_TOPIC="your topic"`
+
+> **💡 Pro tip**: Start with **Solo Chat** for testing, then try **Stand‑Up Club** for fun!  
+> **📚 More tips**: See `src/agentrylab/docs/PRESET_TIPS.md` for advanced configuration.
+
+## 💰 Tool Budgets
+
+Control how many times tools can be called to prevent runaway costs:
+
+- **`per_run_max`**: Total calls per tool across the entire run
+- **`per_iteration_max`**: Calls per engine tick (resets each tick)
+- **Scope**: Enforced per tool ID, shared across agents in the same tick
+- **Minima** (`per_run_min`, `per_iteration_min`) are advisory (not enforced)
+
+## 📜💾 Persistence
+
+**Transcripts for storytelling; checkpoints for recovery.**
+
+- **📜 Transcript JSONL**: `outputs/<thread-id>.jsonl` (human-readable conversation logs)
+- **💾 Checkpoints (SQLite)**: `outputs/checkpoints.db` (resume from any point)
+- **⏭️ Resume**: `--resume` (default) continues from last checkpoint; `--no-resume` starts fresh
+- **🧠 Schemas**: See `src/agentrylab/docs/PERSISTENCE.md` for detailed field definitions
+- **⏱️ Timestamps**: All recorded as Unix epoch seconds (UTC)
+
+## 🏗️ Architecture (at a glance)
+
+**Simple, readable runtime components:**
+
+- **Engine**: Steps the scheduler, executes nodes, applies outputs/actions
+- **Nodes**: Agent, Moderator, Summarizer, Advisor (see `runtime/nodes/*`)
+- **Providers**: Thin HTTP adapters (OpenAI, Ollama)
+- **Tools**: Simple callables with normalized envelopes (e.g., ddgs)
+- **State**: History window composition, budgets, message contracts, rollback
+
+## 🧑‍💻 Development
+
+**Serious tooling for serious… tinkering.**
+
+```bash
+# Install development dependencies
 pip install -e .[dev]
 
-# lint and tests
+# Lint and test
 ruff check . && pytest -q
 
-# coverage (uses pytest-cov; default fail-under=40%)
-make coverage            # or: pytest --cov=src/agentrylab --cov-branch --cov-report=term-missing
+# Coverage (uses pytest-cov; default fail-under=40%)
+make coverage
+# or: pytest --cov=src/agentrylab --cov-branch --cov-report=term-missing
 ```
-☕️ Pro tip: keep a coffee nearby. Agents love to riff.
 
-Python API
-- Initialize a lab and run for N rounds
-  ```python
-  from agentrylab import init, Event
+> **☕️ Pro tip**: Keep a coffee nearby. Agents love to riff.
 
-  # When installed from PyPI, use the packaged preset path helper:
-  # from agentrylab.presets import path as preset_path
-  # lab = init(preset_path("debates.yaml"), experiment_id="unique_id_1234", prompt="What makes jokes funny?")
-  # When working from a checkout, you can also reference the file under src/
-  lab = init("src/agentrylab/presets/debates.yaml", experiment_id="unique_id_1234", prompt="What makes jokes funny?")
-  status = lab.run(rounds=5)
-  print(status.iter, status.is_active)
-  print(lab.history(limit=10))
-  ```
-- One-shot run with optional streaming callback
-  ```python
-  from agentrylab import run
+## 🐍 Python API
 
-  def on_event(ev: dict):
-      print(ev["iter"], ev["agent_id"], ev["role"])  # transcript events
+### Basic Usage
+```python
+from agentrylab import init
 
-  lab, status = run(
-      "src/agentrylab/presets/debates.yaml",
-      prompt="What makes jokes funny?",
-      experiment_id="unique_id_1234",
-      rounds=5,
-      stream=True,
-      on_event=on_event,
-  )
-  ```
+# Initialize a lab and run for N rounds
+lab = init("src/agentrylab/presets/solo_chat.yaml", 
+           experiment_id="my-experiment", 
+           prompt="Tell me about your favorite hobby!")
+status = lab.run(rounds=5)
+print(f"Iterations: {status.iter}, Active: {status.is_active}")
 
-Budgets (Python)
-- Set global/per-tool budgets in the preset, then inspect counters via the checkpoint snapshot.
-  ```python
-  from agentrylab import init
+# View conversation history
+for msg in lab.state.history:
+    print(f"[{msg['role']}]: {msg['content']}")
+```
 
-  preset = {
-      "id": "budget-demo",
-      "providers": [{"id": "p1", "impl": "tests.fake_impls.TestProvider", "model": "test"}],
-      "tools": [{"id": "echo", "impl": "tests.fake_impls.EchoTool"}],
-      "agents": [{"id": "pro", "role": "agent", "provider": "p1", "system_prompt": "You are the agent.", "tools": ["echo"]}],
-      "runtime": {
-          "scheduler": {"impl": "agentrylab.runtime.scheduler.round_robin.RoundRobinScheduler", "params": {"order": ["pro"]}},
-          "budgets": {"tools": {"per_run_max": 1}},
-      },
-  }
-  lab = init(preset, experiment_id="budget-demo-1", resume=False)
-  lab.run(rounds=1)
-  snap = lab.store.load_checkpoint("budget-demo-1")
-  print("total tool calls:", snap.get("_tool_calls_run_total"))
-  ```
+### One-shot Run with Streaming
+```python
+from agentrylab import run
 
-Logging/Tracing from Python
-- Configure runtime logging/trace in the preset and call via Python.
-  ```python
-  preset = {
-      # ... providers/tools/agents ...
-      "runtime": {
-          "logs": {"level": "INFO", "format": "%(asctime)s %(levelname)s %(name)s: %(message)s"},
-          "trace": {"enabled": True},
-          "scheduler": {"impl": "agentrylab.runtime.scheduler.round_robin.RoundRobinScheduler", "params": {"order": ["pro"]}},
-      },
-  }
-  lab = init(preset, experiment_id="log-1")
-  lab.run(rounds=1)
-  ```
+def on_event(ev: dict):
+    print(f"Iteration {ev['iter']}: {ev['agent_id']} ({ev['role']})")
 
-API reference (Python)
-- `init(config, *, experiment_id=None, prompt=None, user_messages=None, resume=True) -> Lab`
-  - `config`: YAML path, dict, or a validated Preset object
-  - `experiment_id`: logical run/thread id; enables resume
-  - `prompt`: sets `cfg.objective` for the run (used in prompts when enabled)
-  - `user_messages`: str or list[str]; seeds initial user message(s) into context
-  - `resume`: attempts to load checkpoint for `experiment_id`
+lab, status = run(
+    "src/agentrylab/presets/solo_chat.yaml",
+    prompt="What makes jokes funny?",
+    experiment_id="streaming-demo",
+    rounds=5,
+    stream=True,
+    on_event=on_event,
+)
+```
 
-- `run(config, *, prompt=None, experiment_id=None, rounds=None, resume=True, stream=False, on_event=None, timeout_s=None, stop_when=None, on_tick=None, on_round=None) -> (Lab, LabStatus)`
-  - One-shot helper; see `Lab.run` for params
+### Budget Management
+```python
+from agentrylab import init
 
-- `Lab.run(*, rounds=None, stream=False, on_event=None, timeout_s=None, stop_when=None, on_tick=None, on_round=None) -> LabStatus`
-  - `rounds`: number of iterations to run
-  - `stream`: when True, calls `on_event(event: Event)` for newly appended transcript entries
-  - `timeout_s`: optional wall-clock timeout for streaming runs
-  - `stop_when`: optional predicate `Event -> bool`; when returns True, run stops
+# Set budgets in preset, then inspect counters
+preset = {
+    "id": "budget-demo",
+    "providers": [{"id": "p1", "impl": "tests.fake_impls.TestProvider", "model": "test"}],
+    "tools": [{"id": "echo", "impl": "tests.fake_impls.EchoTool"}],
+    "agents": [{"id": "pro", "role": "agent", "provider": "p1", "system_prompt": "You are the agent.", "tools": ["echo"]}],
+    "runtime": {
+        "scheduler": {"impl": "agentrylab.runtime.scheduler.round_robin.RoundRobinScheduler", "params": {"order": ["pro"]}},
+        "budgets": {"tools": {"per_run_max": 1}},
+    },
+}
+lab = init(preset, experiment_id="budget-demo-1", resume=False)
+lab.run(rounds=1)
+snap = lab.store.load_checkpoint("budget-demo-1")
+print("Total tool calls:", snap.get("_tool_calls_run_total"))
+```
 
-- `Lab.stream(*, rounds=None, timeout_s=None, stop_when=None, on_tick=None, on_round=None) -> Iterator[Event]`
-  - Generator that yields transcript events as they occur
-  - Optional callbacks: `on_tick(info)`, `on_round(info)` where `info = {"iter": int, "elapsed_s": float}`
+### Logging & Tracing
+```python
+# Configure runtime logging/trace in the preset
+preset = {
+    # ... providers/tools/agents ...
+    "runtime": {
+        "logs": {"level": "INFO", "format": "%(asctime)s %(levelname)s %(name)s: %(message)s"},
+        "trace": {"enabled": True},
+        "scheduler": {"impl": "agentrylab.runtime.scheduler.round_robin.RoundRobinScheduler", "params": {"order": ["pro"]}},
+    },
+}
+lab = init(preset, experiment_id="log-1")
+lab.run(rounds=1)
+```
 
+## 📚 API Reference
+
+### Core Functions
+
+**`init(config, *, experiment_id=None, prompt=None, user_messages=None, resume=True) -> Lab`**
+- `config`: YAML path, dict, or validated Preset object
+- `experiment_id`: Logical run/thread ID; enables resume
+- `prompt`: Sets `cfg.objective` for the run (used in prompts when enabled)
+- `user_messages`: String or list of strings; seeds initial user message(s) into context
+- `resume`: Attempts to load checkpoint for `experiment_id`
+
+**`run(config, *, prompt=None, experiment_id=None, rounds=None, resume=True, stream=False, on_event=None, timeout_s=None, stop_when=None, on_tick=None, on_round=None) -> (Lab, LabStatus)`**
+- One-shot helper; see `Lab.run` for parameters
+
+### Lab Methods
+
+**`Lab.run(*, rounds=None, stream=False, on_event=None, timeout_s=None, stop_when=None, on_tick=None, on_round=None) -> LabStatus`**
+- `rounds`: Number of iterations to run
+- `stream`: When True, calls `on_event(event: Event)` for newly appended transcript entries
+- `timeout_s`: Optional wall-clock timeout for streaming runs
+- `stop_when`: Optional predicate `Event -> bool`; when returns True, run stops
+
+**`Lab.stream(*, rounds=None, timeout_s=None, stop_when=None, on_tick=None, on_round=None) -> Iterator[Event]`**
+- Generator that yields transcript events as they occur
+- Optional callbacks: `on_tick(info)`, `on_round(info)` where `info = {"iter": int, "elapsed_s": float}`
+
+**Other Lab Methods:**
 - `Lab.status` (property) -> `LabStatus`
 - `Lab.history(limit=50)` -> `list[Event]`
- - `Lab.clean(thread_id=None, delete_transcript=True, delete_checkpoint=True) -> None`: delete outputs for a thread
- - `list_threads(config) -> list[tuple[str, float]]`: list (thread_id, updated_at) in persistence
+- `Lab.clean(thread_id=None, delete_transcript=True, delete_checkpoint=True) -> None`: Delete outputs for a thread
+- `list_threads(config) -> list[tuple[str, float]]`: List (thread_id, updated_at) in persistence
 
-Releasing 📦
-- We publish on tags via GitHub Actions (see `.github/workflows/release.yml`).
-- Maintainers: bump `version` in `pyproject.toml`, update `CHANGELOG.md`, then:
-  - `git tag -a vX.Y.Z -m 'vX.Y.Z' && git push --tags`
-- CI builds sdist/wheel and uploads to PyPI using `PYPI_API_TOKEN` secret.
+## 📦 Releasing
 
-Event schema
+We publish on tags via GitHub Actions (see `.github/workflows/release.yml`).
+
+**For maintainers:**
+1. Bump `version` in `pyproject.toml`
+2. Update `CHANGELOG.md`
+3. `git tag -a vX.Y.Z -m 'vX.Y.Z' && git push --tags`
+4. CI builds sdist/wheel and uploads to PyPI using `PYPI_API_TOKEN` secret
+
+## 📋 Event Schema
+
 ```python
 from agentrylab import Event
 
 def handle(ev: Event) -> None:
     print(ev["iter"], ev["agent_id"], ev["role"], ev.get("latency_ms"))
-    # keys: t, iter, agent_id, role, content (str|dict), metadata (dict|None), actions (dict|None), latency_ms
+    # Keys: t, iter, agent_id, role, content (str|dict), metadata (dict|None), actions (dict|None), latency_ms
 ```
 
-Checkpoint snapshot fields
-- Returned by `lab.store.load_checkpoint(thread_id)` as a dict of state attributes (when available):
-  - `thread_id`: current experiment id
-  - `iter`: iteration counter
-  - `stop_flag`: stop signal for the engine
-  - `history`: in‑memory context entries `{agent_id, role, content}` used by prompt composition
-  - `running_summary`: summarizer running summary if set
-  - `_tool_calls_run_total`, `_tool_calls_iteration`: global tool counters
-  - `_tool_calls_run_by_id`, `_tool_calls_iter_by_id`: per‑tool counters
-  - `cfg`, `contracts`: complex/opaque objects (implementation detail)
-  - If a legacy/opaque pickle was saved, you’ll get `{ "_pickled": ... }` instead
+## 💾 Checkpoint Snapshot Fields
 
-Recipes
-- Programmatic preset construction
-  ```python
-  from agentrylab import init
+Returned by `lab.store.load_checkpoint(thread_id)` as a dict of state attributes:
 
-  preset = {
-      "id": "programmatic",
-      "providers": [{"id": "p1", "impl": "agentrylab.runtime.providers.openai.OpenAIProvider", "model": "gpt-4o"}],
-      "tools": [],
-      "agents": [{"id": "pro", "role": "agent", "provider": "p1", "system_prompt": "You are the agent."}],
-      "runtime": {
-          "scheduler": {"impl": "agentrylab.runtime.scheduler.round_robin.RoundRobinScheduler", "params": {"order": ["pro"]}}
-      },
-  }
-  lab = init(preset, experiment_id="prog-1", user_messages=["Start topic: ..."]) 
-  lab.run(rounds=3)
-  ```
+- **`thread_id`**: Current experiment ID
+- **`iter`**: Iteration counter
+- **`stop_flag`**: Stop signal for the engine
+- **`history`**: In‑memory context entries `{agent_id, role, content}` used by prompt composition
+- **`running_summary`**: Summarizer running summary if set
+- **`_tool_calls_run_total`, `_tool_calls_iteration`**: Global tool counters
+- **`_tool_calls_run_by_id`, `_tool_calls_iter_by_id`**: Per‑tool counters
+- **`cfg`, `contracts`**: Complex/opaque objects (implementation detail)
 
-- Multiple runs in a loop
-  ```python
-  topics = ["jokes", "puns", "metaphors"]
-  for i, topic in enumerate(topics):
-      lab = init("src/agentrylab/presets/debates.yaml", experiment_id=f"exp-{i}", prompt=f"Explore {topic}")
-      lab.run(rounds=2)
-  ```
+> **Note**: If a legacy/opaque pickle was saved, you'll get `{ "_pickled": ... }` instead
 
-- Inspecting transcripts
-  ```python
-  lab = init("src/agentrylab/presets/debates.yaml", experiment_id="inspect-1")
-  lab.run(rounds=1)
-  for ev in lab.history(limit=20):
-      print(ev["iter"], ev["agent_id"], ev["role"], str(ev["content"])[:80])
-  # Or read directly from the store
-  rows = lab.store.read_transcript("inspect-1", limit=100)
-  ```
+## 🍳 Recipes
 
-- Cleaning outputs (transcript + checkpoint)
-  ```python
-  from agentrylab import init
-  lab = init("src/agentrylab/presets/debates.yaml", experiment_id="demo-clean")
-  lab.run(rounds=1)
-  # Remove persisted outputs for this experiment
-  lab.clean()  # or lab.clean(thread_id="some-other-id")
-  ```
+### Programmatic Preset Construction
+```python
+from agentrylab import init
 
-License
+preset = {
+    "id": "programmatic",
+    "providers": [{"id": "p1", "impl": "agentrylab.runtime.providers.openai.OpenAIProvider", "model": "gpt-4o"}],
+    "tools": [],
+    "agents": [{"id": "pro", "role": "agent", "provider": "p1", "system_prompt": "You are the agent."}],
+    "runtime": {
+        "scheduler": {"impl": "agentrylab.runtime.scheduler.round_robin.RoundRobinScheduler", "params": {"order": ["pro"]}}
+    },
+}
+lab = init(preset, experiment_id="prog-1", user_messages=["Start topic: ..."]) 
+lab.run(rounds=3)
+```
+
+### Multiple Runs in a Loop
+```python
+topics = ["jokes", "puns", "metaphors"]
+for i, topic in enumerate(topics):
+    lab = init("src/agentrylab/presets/debates.yaml", experiment_id=f"exp-{i}", prompt=f"Explore {topic}")
+    lab.run(rounds=2)
+```
+
+### Inspecting Transcripts
+```python
+lab = init("src/agentrylab/presets/debates.yaml", experiment_id="inspect-1")
+lab.run(rounds=1)
+for ev in lab.history(limit=20):
+    print(ev["iter"], ev["agent_id"], ev["role"], str(ev["content"])[:80])
+
+# Or read directly from the store
+rows = lab.store.read_transcript("inspect-1", limit=100)
+```
+
+### Cleaning Outputs (Transcript + Checkpoint)
+```python
+from agentrylab import init
+lab = init("src/agentrylab/presets/debates.yaml", experiment_id="demo-clean")
+lab.run(rounds=1)
+# Remove persisted outputs for this experiment
+lab.clean()  # or lab.clean(thread_id="some-other-id")
+```
+
+---
+
+## 📄 License
+
 MIT

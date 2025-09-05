@@ -8,7 +8,7 @@ objective: "Proposition: AI regulation should be significantly stricter to ensur
 # === Global runtime and policy ===
 runtime:
   message_contract:                 # lightweight constraints the runtime enforces on agent outputs
-    require_metadata: true          # when true, agent outputs must include metadata (e.g., citations)
+    require_metadata: false         # when true, agent outputs must include metadata (e.g., citations)
     min_citations: 1                # minimum number of URLs to include in metadata.citations
   logs:
     level: INFO                     # DEBUG/INFO/WARN/ERROR — controls verbosity
@@ -33,10 +33,10 @@ runtime:
 
 # High‑level rules the Moderator references to enforce behavior
 room_rules:
-  topic_focus_threshold: 0.4           # drift in [0,1]; if > threshold, moderator may STEP_BACK
-  require_urls_for_factual_claims: true # ask agents to include at least one supporting URL per turn
-  min_urls_per_side: 1                 # minimum number of URLs per side to consider as sufficient
-  max_message_len: 120                 # soft limit on message length (words) — guidance for prompts
+  topic_focus_threshold: 0.6           # drift in [0,1]; if > threshold, moderator may STEP_BACK
+  require_urls_for_factual_claims: false # ask agents to include at least one supporting URL per turn
+  min_urls_per_side: 0                 # minimum number of URLs per side to consider as sufficient
+  max_message_len: 150                 # soft limit on message length (words) — guidance for prompts
   evidence_first_policy: true          # encourage tool search before factual assertions
 
 # Defaults applied to all agents unless overridden
@@ -80,9 +80,9 @@ tools:
       backoff: 0.3                     # seconds; exponential backoff base
     budget:                            # budget limits enforced by State/Engine
       per_run_min: 0                   # advisory minimum (not enforced at call time)
-      per_run_max: 2                   # max total calls across the whole run
+      per_run_max: 10                  # max total calls across the whole run
       per_iteration_min: 0             # advisory minimum per iteration
-      per_iteration_max: 1             # max calls during a single iteration
+      per_iteration_max: 2             # max calls during a single iteration (allow both pro and con)
     observability:
       log_calls: true                  # log tool invocations
       log_results: 3                   # record top‑N results for debugging
@@ -133,28 +133,27 @@ agents:
       running_summary: true
     system_prompt: |
       You argue IN FAVOR of the user's proposition.
-      - State a clear thesis supporting the proposition.
-      - TOOL CALL FIRST: Before asserting any fact, emit exactly this JSON to call the search tool (no prose):
-        {"tools": [{"tool": "search_ddg", "args": {"query": "<short positive-biased query>"}}]}
-      - IMPORTANT: Your first output for each turn MUST be the JSON tool call ONLY — one line, no prose, no code fences.
-      - Also acceptable: the same JSON inside a ```json fenced block if unavoidable.
-      - Fallback: If you cannot emit the JSON tool call, proceed with your answer, but you MUST include at least one http(s) URL inline.
-      - After the tool returns, provide your answer in a separate message.
-      - Always include ≥1 supporting URL inline in the text.
-      - Rebut the opponent's last point directly without repeating their text verbatim.
-      - Stay opposed: Do not agree with or echo the Con's arguments.
-      - Be concise (<=120 words) unless evidence is explicitly requested.
-      - Few-shot (structure):
-        First message (tool call only):
-        {"tools": [{"tool": "search_ddg", "args": {"query": "benefits of stricter AI regulation evidence"}}]}
-        Second message (answer, ≤120 words, with ≥1 URL inline):
-        Stricter, risk-based rules improve accountability without halting progress; disclosure and auditability reduce systemic harms in sensitive domains. See OECD guidance: https://oecd.ai/en/ai-principles
+      
+      CRITICAL RULES:
+      - Always search for evidence before making claims
+      - Include at least one supporting URL in your response
+      - Be concise (≤120 words) unless evidence is explicitly requested
+      - Rebut the opponent's last point directly without repeating their text verbatim
+      - Stay opposed: Do not agree with or echo the Con's arguments
+      
+      PROCESS:
+      1. First, search for evidence using the search tool
+      2. Then provide your argument with supporting URLs
+      
+      EXAMPLE:
+      Search: "benefits of stricter AI regulation evidence"
+      Response: "Stricter, risk-based rules improve accountability without halting progress; disclosure and auditability reduce systemic harms in sensitive domains. See OECD guidance: https://oecd.ai/en/ai-principles"
 
   - id: con
     role: agent                        # blocking debater
     display_name: "Con"
     description: Con-argumenting debater
-    provider: ollama_llama3
+    provider: openai_gpt4o_mini
     tools: [search_ddg]
     context:
       max_messages: 5
@@ -162,22 +161,21 @@ agents:
       running_summary: true
     system_prompt: |
       You argue AGAINST the user's proposition.
-      - State a clear thesis opposing the proposition.
-      - TOOL CALL FIRST: Before asserting any fact, emit exactly this JSON to call the search tool (no prose):
-        {"tools": [{"tool": "search_ddg", "args": {"query": "<short negative-biased query>"}}]}
-      - IMPORTANT: Your first output for each turn MUST be the JSON tool call ONLY — one line, no prose, no code fences.
-      - Also acceptable: the same JSON inside a ```json fenced block if unavoidable.
-      - Fallback: If you cannot emit the JSON tool call, proceed with your answer, but you MUST include at least one http(s) URL inline.
-      - After the tool returns, provide your answer in a separate message.
-      - Always include ≥1 supporting URL inline in the text.
-      - Rebut the opponent's last point directly without repeating their text verbatim.
-      - Stay opposed: Do not agree with or echo the Pro's arguments.
-      - Be concise (<=120 words) unless evidence is explicitly requested.
-      - Few-shot (structure):
-        First message (tool call only):
-        {"tools": [{"tool": "search_ddg", "args": {"query": "AI regulation harms innovation evidence"}}]}
-        Second message (answer, ≤120 words, with ≥1 URL inline):
-        Over-broad rules risk chilling life‑saving innovations and burden smaller labs. A targeted, risk‑based approach preserves progress while addressing genuine harms. See critique: https://www.brookings.edu/articles/how-to-regulate-ai-without-stifling-innovation/
+      
+      CRITICAL RULES:
+      - Always search for evidence before making claims
+      - Include at least one supporting URL in your response
+      - Be concise (≤120 words) unless evidence is explicitly requested
+      - Rebut the opponent's last point directly without repeating their text verbatim
+      - Stay opposed: Do not agree with or echo the Pro's arguments
+      
+      PROCESS:
+      1. First, search for evidence using the search tool
+      2. Then provide your argument with supporting URLs
+      
+      EXAMPLE:
+      Search: "AI regulation harms innovation evidence"
+      Response: "Over-broad rules risk chilling life‑saving innovations and burden smaller labs. A targeted, risk‑based approach preserves progress while addressing genuine harms. See critique: https://www.brookings.edu/articles/how-to-regulate-ai-without-stifling-innovation/"
 
   - id: moderator
     role: moderator                    # single blocking moderator
@@ -236,24 +234,8 @@ agents:
       - Open Questions: 1–3 bullets (optional).
       - Next Steps: 1–3 bullets (optional).
 
-# (duplicate advisors block removed)
-    tools: []
-    non_blocking: true
-
 # === Scheduling (who speaks when) ===
-schedule:
-  - id: pro
-    every_n: 1                         # pro speaks every round (blocking)
-  - id: con
-    every_n: 1                         # con speaks every round (blocking)
-  - id: moderator
-    every_n: 2                         # moderator evaluates every 2 rounds
-  - id: summarizer
-    every_n: 3                         # periodic summaries
-    run_on_last: true                  # force final summary at end of run
-  - id: style_coach
-    every_n: 3                         # advisor cadence (non‑blocking)
-    non_blocking: true                 # advisors never block the loop
+# Note: Using runtime.scheduler.params.schedule above for consistency
 
 # === Persistence backends ===
 persistence_tools:

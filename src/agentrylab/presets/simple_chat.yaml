@@ -1,0 +1,122 @@
+#########################
+# Simple Chat preset
+# Perfect for llama3 - no complex requirements, just natural conversation
+#########################
+
+version: "1.0.0"
+id: simple_chat
+name: Simple Chat
+description: Two agents having a natural conversation on any topic.
+
+# Optional user seed topic
+objective: ${CHAT_TOPIC:Let's have a friendly conversation!}
+
+runtime:
+  message_contract:
+    require_metadata: false         # No metadata requirements
+    min_citations: 0                # No citation requirements
+  logs:
+    level: INFO
+  trace:
+    enabled: true
+  max_rounds: 6                     # Short, focused conversation
+  scheduler:
+    impl: agentrylab.runtime.scheduler.every_n.EveryNScheduler
+    params:
+      schedule:
+        alice: 1                    # Alice speaks every turn
+        bob: 1                      # Bob speaks every turn
+  allow_parallel_tools: false       # Keep it simple
+  fail_open_on_tool_error: true     # Don't fail on errors
+  default_timeout_s: 30             # Quick responses
+  strict_budget: false              # No budget constraints
+
+# Very lenient rules
+room_rules:
+  topic_focus_threshold: 0.9        # Very lenient
+  require_urls_for_factual_claims: false
+  min_urls_per_side: 0
+  max_message_len: 150              # Short responses
+  evidence_first_policy: false      # No evidence requirements
+
+# Simple defaults
+context_defaults:
+  pin_objective: true               # Keep topic in mind
+  pin_system_prompt: true           # Maintain role
+
+# No moderation
+moderation:
+  step_back:
+    allow: false                    # No rollbacks
+
+# Simple provider
+providers:
+  - id: ollama_llama3
+    impl: agentrylab.runtime.providers.ollama.OllamaProvider
+    model: "llama3:latest"
+    base_url: "http://localhost:11434"
+    temperature: 0.7                # Balanced creativity
+    options:
+      num_ctx: 4096
+      top_p: 0.9
+      repeat_penalty: 1.1
+
+# No tools
+tools: []
+
+# No advisors
+advisors: []
+
+# Two friendly chat agents
+agents:
+  - id: alice
+    role: agent
+    display_name: "Alice"
+    description: Friendly conversationalist
+    provider: ollama_llama3
+    tools: []
+    context:
+      max_messages: 3               # Short memory
+      pin_objective: true
+      running_summary: false        # No summaries
+    system_prompt: |
+      You are Alice, a friendly and curious person. You love to chat and ask questions.
+      
+      Keep your responses:
+      - Short and conversational (under 100 words)
+      - Friendly and engaging
+      - Ask follow-up questions
+      - Share your thoughts naturally
+      
+      Just be yourself and have a good conversation!
+
+  - id: bob
+    role: agent
+    display_name: "Bob"
+    description: Friendly conversationalist
+    provider: ollama_llama3
+    tools: []
+    context:
+      max_messages: 3               # Short memory
+      pin_objective: true
+      running_summary: false        # No summaries
+    system_prompt: |
+      You are Bob, a friendly and thoughtful person. You enjoy deep conversations and sharing ideas.
+      
+      Keep your responses:
+      - Short and conversational (under 100 words)
+      - Thoughtful and engaging
+      - Share your perspective
+      - Ask interesting questions
+      
+      Just be yourself and have a good conversation!
+
+# No persistence
+persistence: {}
+
+# Simple logging
+logs:
+  format: pretty
+  level: info
+  destination: console
+  redact_secrets: true

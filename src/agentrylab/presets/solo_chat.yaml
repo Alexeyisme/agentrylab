@@ -1,0 +1,101 @@
+#########################
+# Solo Chat preset
+# Single llama3 agent - perfect for testing and simple interactions
+#########################
+
+version: "1.0.0"
+id: solo_chat
+name: Solo Chat
+description: A single friendly agent ready to chat about anything.
+
+# Optional user seed topic
+objective: ${CHAT_TOPIC:Hello! What would you like to talk about?}
+
+runtime:
+  message_contract:
+    require_metadata: false         # No metadata requirements
+    min_citations: 0                # No citation requirements
+  logs:
+    level: INFO
+  trace:
+    enabled: true
+  max_rounds: 10                    # Longer conversation
+  scheduler:
+    impl: agentrylab.runtime.scheduler.every_n.EveryNScheduler
+    params:
+      schedule:
+        assistant: 1                # Assistant speaks every turn
+  allow_parallel_tools: false       # Keep it simple
+  fail_open_on_tool_error: true     # Don't fail on errors
+  default_timeout_s: 30             # Quick responses
+  strict_budget: false              # No budget constraints
+
+# Very lenient rules
+room_rules:
+  topic_focus_threshold: 0.9        # Very lenient
+  require_urls_for_factual_claims: false
+  min_urls_per_side: 0
+  max_message_len: 200              # Allow longer responses
+  evidence_first_policy: false      # No evidence requirements
+
+# Simple defaults
+context_defaults:
+  pin_objective: true               # Keep topic in mind
+  pin_system_prompt: true           # Maintain role
+
+# No moderation
+moderation:
+  step_back:
+    allow: false                    # No rollbacks
+
+# Simple provider
+providers:
+  - id: ollama_llama3
+    impl: agentrylab.runtime.providers.ollama.OllamaProvider
+    model: "llama3:latest"
+    base_url: "http://localhost:11434"
+    temperature: 0.7                # Balanced creativity
+    options:
+      num_ctx: 4096
+      top_p: 0.9
+      repeat_penalty: 1.1
+
+# No tools
+tools: []
+
+# No advisors
+advisors: []
+
+# Single friendly agent
+agents:
+  - id: assistant
+    role: agent
+    display_name: "Assistant"
+    description: Friendly conversational assistant
+    provider: ollama_llama3
+    tools: []
+    context:
+      max_messages: 5               # Keep some context
+      pin_objective: true
+      running_summary: false        # No summaries
+    system_prompt: |
+      You are a friendly and helpful assistant. You love to chat and help people with their questions.
+      
+      Your personality:
+      - Curious and engaging
+      - Ask follow-up questions
+      - Share your thoughts naturally
+      - Be helpful and supportive
+      - Keep responses conversational (under 150 words)
+      
+      Just be yourself and have a great conversation!
+
+# No persistence
+persistence: {}
+
+# Simple logging
+logs:
+  format: pretty
+  level: info
+  destination: console
+  redact_secrets: true

@@ -1,22 +1,25 @@
 #########################
-# Stand‑Up Club preset
-# Fun, non‑strict, llama3‑friendly preset.
+# Stand‑Up Club preset (FINAL)
+# Hybrid model setup: comicA (Ollama) + comicB (GPT-4o-mini) for optimal performance.
+# Enhanced with better agent reliability and topic adherence via moderator.
 # Tips:
 # - Seed a topic with JOKE_TOPIC env var (see `objective`).
-# - Comedians (agents) go every turn; punch_up advisor every 2; MC (summarizer) every 2 and on last.
+# - Comedians (agents) go every turn; moderator every 2; punch_up advisor every 3; MC (summarizer) every 2 and on last.
 # - Prompts avoid asking the user to type; produce standalone bits.
+# - Moderator detects topic drift and can rollback if needed.
+# - comicB uses GPT-4o-mini for consistent, high-quality comedy content.
 #########################
 
 version: "1.0.0"
 id: standup_club
 name: Stand‑Up Club
-description: Two comedians riff on a user‑provided topic; a punch‑up advisor chimes in; the MC wraps with a final bit.
+description: Two comedians riff on a user‑provided topic; comicA (Ollama) starts, comicB (GPT-4o-mini) builds on it; a moderator keeps them on track; a punch‑up advisor chimes in; the MC wraps with a final bit.
 
 # Optional user seed topic (pinned when enabled)
-objective: ${JOKE_TOPIC:Give us a topic and we’ll make it funny.}
+objective: ${JOKE_TOPIC:Give us a topic and we'll make it funny.}
 
 runtime:
-  max_rounds: 6
+  max_rounds: 8
   trace: { enabled: true }
   scheduler:
     impl: agentrylab.runtime.scheduler.every_n.EveryNScheduler
@@ -24,7 +27,8 @@ runtime:
       schedule:
         comicA: 1
         comicB: 1
-        punch_up: 2
+        moderator: 2
+        punch_up: 3
         mc:
           every_n: 2
           run_on_last: true
@@ -32,48 +36,157 @@ runtime:
     require_metadata: false
   context_defaults:
     pin_objective: true
+  # Enable moderation with drift detection
+  moderation:
+    step_back:
+      allow: true
+      max_rollback: 4
+      clear_running_summaries: "optional"
 
 providers:
   - id: ollama_llama3
     impl: agentrylab.runtime.providers.ollama.OllamaProvider
     model: "llama3:latest"
     base_url: "http://localhost:11434"
-    timeout: 8
+    timeout: 12
+    temperature: 0.8
+    options:
+      num_ctx: 4096
+      top_p: 0.9
+      repeat_penalty: 1.1
+      stop: ["\n\n", "User:", "Human:"]
+  - id: openai_gpt4o_mini
+    impl: agentrylab.runtime.providers.openai.OpenAIProvider
+    model: "gpt-4o-mini"
+    api_key: ${OPENAI_API_KEY}
+    temperature: 0.7
 
 agents:
   - id: comicA
     role: agent
     provider: ollama_llama3
     description: Setups and light punchlines
+    context:
+      max_messages: 4
+      pin_objective: true
     system_prompt: |
-      You are a stand‑up comedian. Craft a short bit (2–4 lines) about the topic.
-      Mix a playful setup with a light punchline. Avoid asking the user to type or respond.
-      Keep it clean(ish), witty, and self‑contained.
+      You are a stand‑up comedian. Your job is to create comedy bits about the given topic.
+      
+      CRITICAL RULES:
+      - ALWAYS write 2-4 lines of comedy content
+      - NEVER leave your response empty
+      - Focus on the topic provided in the objective
+      - Mix a playful setup with a light punchline
+      - Keep it clean(ish), witty, and self‑contained
+      - Do NOT ask the user to type or respond
+      - Do NOT include meta-commentary like "here's a joke" or "let me try"
+      
+      Example format:
+      "You know what's weird about [topic]? [setup]. [punchline]."
+      
+      Now create a comedy bit about the topic.
 
   - id: comicB
     role: agent
-    provider: ollama_llama3
+    provider: openai_gpt4o_mini
     description: Tagging and call‑backs
+    context:
+      max_messages: 4
+      pin_objective: true
     system_prompt: |
-      You are a stand‑up comedian riffing off the prior bit. Write 2–4 lines.
-      Reference ONE specific line from comicA's previous bit and add a tag/call‑back.
-      Never leave the output empty. Avoid asking the user to type or respond.
-      Be punchy and self‑contained.
+      You are comicB, a stand‑up comedian. Your job is to create comedy bits that build on comicA's jokes.
+      
+      CRITICAL RULES:
+      - ALWAYS write 2-4 lines of comedy content
+      - NEVER leave your response empty
+      - Create a NEW joke that relates to the topic and comicA's material
+      - Be funny and original
+      - Stay focused on the topic
+      - Do NOT ask the user to type or respond
+      - Do NOT include meta-commentary
+      
+      EXAMPLES:
+      If comicA jokes about procrastination being a skill, you could joke about:
+      "You know what's funny? I've been meaning to write a joke about procrastination, but I keep putting it off."
+      
+      If comicA jokes about coffee addiction, you could joke about:
+      "I don't have a coffee addiction. I have a dependency. There's a difference - one sounds like a problem, the other sounds like a lifestyle choice."
+      
+      If comicA jokes about social media, you could joke about:
+      "I'm not addicted to social media. I'm just very committed to staying informed about what my ex had for breakfast."
+      
+      Your turn: Create a funny joke about the current topic that stands alone but relates to the theme.
+
+  - id: moderator
+    role: moderator
+    provider: openai_gpt4o_mini
+    description: Comedy club moderator keeping comedians on topic
+    context:
+      max_messages: 6
+      pin_objective: true
+    output_contract: json
+    system_prompt: |
+      You are a comedy club moderator. Monitor the comedians' performance and topic adherence.
+      
+      Your job:
+      - Check if comedians are staying on the given topic
+      - Ensure they're producing actual comedy content (not empty responses)
+      - Calculate topic drift (0.0 = perfectly on topic, 1.0 = completely off topic)
+      - Take action if needed
+      
+      CRITICAL: You MUST respond with ONLY valid JSON. No text, no explanations, no code fences.
+      
+      Example JSON response:
+      {"summary": "Comedians are performing well on coffee addiction topic", "drift": 0.2, "action": "CONTINUE", "rollback": 0, "citations": [], "clear_summaries": false}
+      
+      Rules:
+      - If drift > 0.6, use STEP_BACK with rollback 2-4
+      - If ANY comedian produces empty responses, use STEP_BACK with rollback 1-2
+      - If performance is good, use CONTINUE
+      - Only use STOP if completely off-topic for multiple rounds
+      - Be strict about empty responses - they break the comedy flow
+      
+      ALWAYS output valid JSON with these exact keys: summary, drift, action, rollback, citations, clear_summaries
 
   - id: punch_up
     role: advisor
     provider: ollama_llama3
     description: Non‑blocking punch‑up notes
+    context:
+      max_messages: 3
     system_prompt: |
       You are a punch‑up writer. Offer 2–3 ultra‑short bullet tweaks (<10 words each)
-      to sharpen clarity or timing. No meta comments, no audience prompts.
+      to sharpen clarity or timing. 
+      
+      CRITICAL RULES:
+      - ALWAYS provide feedback, never leave empty
+      - Keep each bullet under 10 words
+      - Focus on timing, clarity, or punch
+      - No meta comments, no audience prompts
+      
+      Example format:
+      • "Add pause before punchline"
+      • "Stronger setup needed"
+      • "Great callback!"
 
   - id: mc
     role: summarizer
     provider: ollama_llama3
     description: MC wraps the set
+    context:
+      max_messages: 6
+      pin_objective: true
     system_prompt: |
       You are the MC. Combine the funniest elements into one tight closer.
-      Always write 3–5 COMPLETE sentences; NO bullets, NO references, NO “please respond”.
-      Ignore advisor bullet notes; compose a self‑contained mini‑bit in prose only.
+      
+      CRITICAL RULES:
+      - ALWAYS write 3–5 COMPLETE sentences
+      - NEVER leave your response empty
+      - NO bullets, NO references, NO "please respond"
+      - Compose a self‑contained mini‑bit in prose only
+      - Reference the best jokes from the set
+      - End with a strong closer
+      
+      Example format:
+      "Tonight we explored [topic] and [comedian] had us laughing with [joke reference]. [comedian] followed up with [callback]. The funniest part was when [best moment]. Thanks for coming to the comedy club!"
     max_summary_chars: 500
