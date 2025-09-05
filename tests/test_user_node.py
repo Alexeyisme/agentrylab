@@ -62,7 +62,10 @@ def test_user_node_consumes_enqueued_and_precedes_agent(tmp_path):
     # Provider should have seen the user message in composed messages
     provider = lab.providers["p1"]
     msgs = getattr(provider, "last_messages", [])
-    assert any(m.get("role") == "user" and "Hello from Alice!" in str(m.get("content")) for m in msgs)
+    assert any(
+        m.get("role") == "user" and "Hello from Alice!" in str(m.get("content"))
+        for m in msgs
+    )
 
 
 def test_empty_user_turn_is_skipped_in_transcript(tmp_path):
@@ -87,7 +90,9 @@ def test_user_node_never_calls_provider(tmp_path):
 
     # Assert: user event exists, but provider was not called by the user node
     rows = lab.store.read_transcript("user-node-3")
-    assert any(r.get("role") == "user" and "Ping!" in str(r.get("content")) for r in rows)
+    assert any(
+        r.get("role") == "user" and "Ping!" in str(r.get("content")) for r in rows
+    )
     provider = lab.providers["p1"]
     assert not hasattr(provider, "last_messages"), "UserNode should not call provider.chat()"
 
@@ -128,6 +133,12 @@ def test_multi_user_targets_and_order(tmp_path):
     # Agent provider should see both user lines in its composed messages
     provider = lab.providers["p1"]
     msgs = getattr(provider, "last_messages", [])
-    got_alice = any(m.get("role") == "user" and "Hi from Alice" in str(m.get("content")) for m in msgs)
-    got_bob = any(m.get("role") == "user" and "Hey from Bob" in str(m.get("content")) for m in msgs)
+    got_alice = any(
+        m.get("role") == "user" and "Hi from Alice" in str(m.get("content"))
+        for m in msgs
+    )
+    got_bob = any(
+        m.get("role") == "user" and "Hey from Bob" in str(m.get("content"))
+        for m in msgs
+    )
     assert got_alice and got_bob
