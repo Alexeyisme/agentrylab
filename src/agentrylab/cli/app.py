@@ -13,8 +13,43 @@ import yaml
 from agentrylab.lab import init_lab
 from agentrylab.persistence.store import Store
 from agentrylab.logging import setup_logging
+from agentrylab.presets import path as packaged_preset_path
 
 app = typer.Typer(add_completion=False, help="Agentry Lab CLI — minimal ceremony, maximum signal.")
+
+
+def _resolve_preset(preset_arg: str) -> Path:
+    """Resolve a preset argument to a real filesystem path.
+
+    Accepts either a direct path (relative/absolute) or the name of a packaged
+    preset (e.g., "solo_chat.yaml" or "solo_chat").
+    """
+    # 1) Direct path in filesystem
+    p = Path(preset_arg)
+    if p.exists() and p.is_file():
+        return p
+
+    # 2) Packaged preset by name (with or without .yaml)
+    candidates = []
+    name = p.name  # keep only the final component if path-like was given
+    candidates.append(name)
+    if not name.endswith(".yaml"):
+        candidates.append(name + ".yaml")
+    for cand in candidates:
+        try:
+            pkg_path = Path(packaged_preset_path(cand))
+            if pkg_path.exists():
+                return pkg_path
+        except Exception:
+            # If importlib resources resolution fails, continue trying others
+            pass
+
+    # 3) Not found — raise a helpful error
+    msg = (
+        f"Could not resolve preset '{preset_arg}'. Provide a valid file path or a "
+        f"packaged preset name like 'solo_chat.yaml'."
+    )
+    raise typer.BadParameter(msg)
 
 
 def _load_env_file(env_path: Path | None = None) -> None:
@@ -84,7 +119,7 @@ def _print_last_messages(lab, limit: int = 10) -> None:
 
 @app.command("run")
 def run_cmd(
-    preset: Path = typer.Argument(..., exists=True, readable=True, help="Path to YAML preset"),
+    preset: str = typer.Argument(..., help="Path to YAML preset or packaged preset name"),
     max_iters: int = typer.Option(8, help="Maximum scheduler ticks to run"),
     thread_id: Optional[str] = typer.Option(None, help="Logical thread/run id (used for transcript & checkpoints)"),
     show_last: int = typer.Option(10, help="How many last messages to print after run"),
@@ -95,9 +130,12 @@ def run_cmd(
     """Run a preset once (stream by default)."""
     # Load .env before interpolation/validation so ${VARS} resolve
     _load_env()
+    # Resolve preset
+    preset_path = _resolve_preset(preset)
+
     # Lint: read raw YAML and run advisory checks
     try:
-        raw = yaml.safe_load(Path(preset).read_text(encoding="utf-8")) or {}
+        raw = yaml.safe_load(preset_path.read_text(encoding="utf-8")) or {}
         raw = _env_interp_deep(raw)
         warnings = validate_preset_dict(raw) if isinstance(raw, dict) else []
         for msg in warnings:
@@ -105,7 +143,7 @@ def run_cmd(
     except Exception:
         pass
 
-    cfg = load_config(str(preset))
+    cfg = load_config(str(preset_path))
 
     # Initialize logging/tracing per runtime config
     try:
@@ -163,12 +201,13 @@ def run_cmd(
 
 @app.command("status")
 def status_cmd(
-    preset: Path = typer.Argument(..., exists=True, readable=True, help="Path to YAML preset"),
+    preset: str = typer.Argument(..., help="Path to YAML preset or packaged preset name"),
     thread_id: str = typer.Argument(..., help="Thread id to inspect"),
 ) -> None:
     """Print iter and history length for a thread from the checkpoint DB."""
     _load_env()
-    cfg = load_config(str(preset))
+    preset_path = _resolve_preset(preset)
+    cfg = load_config(str(preset_path))
     store = Store(cfg)
     snap = store.load_checkpoint(thread_id)
     if not snap:
@@ -185,13 +224,14 @@ def status_cmd(
 
 @app.command("validate")
 def validate_cmd(
-    preset: Path = typer.Argument(..., exists=True, readable=True, help="Path to YAML preset"),
+    preset: str = typer.Argument(..., help="Path to YAML preset or packaged preset name"),
     strict: bool = typer.Option(False, "--strict/--no-strict", help="Exit non-zero when issues are found"),
 ) -> None:
     """Lint a preset file and print advisory warnings (be nice to future you)."""
     _load_env()
     try:
-        raw = yaml.safe_load(preset.read_text(encoding="utf-8")) or {}
+        preset_path = _resolve_preset(preset)
+        raw = yaml.safe_load(preset_path.read_text(encoding="utf-8")) or {}
         raw = _env_interp_deep(raw)
     except Exception as e:
         typer.echo(f"Failed to read YAML: {e}")
@@ -214,13 +254,14 @@ def validate_cmd(
 
 @app.command("extend")
 def extend_cmd(
-    preset: Path = typer.Argument(..., exists=True, readable=True, help="Path to YAML preset"),
+    preset: str = typer.Argument(..., help="Path to YAML preset or packaged preset name"),
     thread_id: str = typer.Argument(..., help="Thread id to extend"),
     add_iters: int = typer.Option(1, help="Additional iterations to run"),
 ) -> None:
     """Extend an existing thread by N iterations (resumes state)."""
     _load_env()
-    cfg = load_config(str(preset))
+    preset_path = _resolve_preset(preset)
+    cfg = load_config(str(preset_path))
     lab = init_lab(cfg, thread_id=thread_id, resume=True)
     lab.extend(add_iters=add_iters)
     typer.echo(f"Extended thread {thread_id} by {add_iters} iterations.")
@@ -228,13 +269,14 @@ def extend_cmd(
 
 @app.command("reset")
 def reset_cmd(
-    preset: Path = typer.Argument(..., exists=True, readable=True, help="Path to YAML preset"),
+    preset: str = typer.Argument(..., help="Path to YAML preset or packaged preset name"),
     thread_id: str = typer.Argument(..., help="Thread id to reset"),
     delete_transcript: bool = typer.Option(False, help="Also delete transcript JSONL"),
 ) -> None:
     """Delete the checkpoint (and optionally transcript) for a thread (fresh start)."""
     _load_env()
-    cfg = load_config(str(preset))
+    preset_path = _resolve_preset(preset)
+    cfg = load_config(str(preset_path))
     store = Store(cfg)
     store.delete_checkpoint(thread_id)
     if delete_transcript:
@@ -244,11 +286,12 @@ def reset_cmd(
 
 @app.command("ls")
 def list_threads_cmd(
-    preset: Path = typer.Argument(..., exists=True, readable=True, help="Path to YAML preset"),
+    preset: str = typer.Argument(..., help="Path to YAML preset or packaged preset name"),
 ) -> None:
     """List known threads from the checkpoint store (what stories we’ve saved)."""
     _load_env()
-    cfg = load_config(str(preset))
+    preset_path = _resolve_preset(preset)
+    cfg = load_config(str(preset_path))
     store = Store(cfg)
     rows = store.list_threads()
     if not rows:
@@ -262,14 +305,15 @@ def list_threads_cmd(
 
 @app.command("say")
 def say_cmd(
-    preset: Path = typer.Argument(..., exists=True, readable=True, help="Path to YAML preset"),
+    preset: str = typer.Argument(..., help="Path to YAML preset or packaged preset name"),
     thread_id: str = typer.Argument(..., help="Thread id to post into"),
     message: str = typer.Argument(..., help="User message to append"),
     user_id: str = typer.Option("user", help="Logical user id (default: 'user')"),
 ) -> None:
     """Append a user message into a thread's history (and transcript)."""
     _load_env()
-    cfg = load_config(str(preset))
+    preset_path = _resolve_preset(preset)
+    cfg = load_config(str(preset_path))
     lab = init_lab(cfg, thread_id=thread_id, resume=True)
     lab.post_user_message(message, user_id=user_id)
     typer.echo(f"Appended user message to thread '{thread_id}' as {user_id}.")
