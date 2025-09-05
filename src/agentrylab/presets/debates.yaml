@@ -52,6 +52,8 @@ moderation:
     clear_running_summaries: "optional" # whether to clear running summaries on rollback
 
 # === Providers (LLM backends) ===
+# Providers: Local vs. OpenAI — this preset mixes Ollama (local) and OpenAI.
+# To run fully local, change the provider references on agents to `ollama_llama3`.
 providers:
   - id: openai_gpt4o_mini
     impl: agentrylab.runtime.providers.openai.OpenAIProvider

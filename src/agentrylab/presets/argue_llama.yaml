@@ -1,0 +1,104 @@
+#########################
+# Simple Argument (LLAMA‑ONLY)
+# Two llama3 agents having a natural debate without strict rules.
+# No JSON requirements, no metadata constraints - just pure argumentation.
+# Providers: Local only (Ollama/llama3)
+#########################
+
+version: "1.0.0"
+id: argue_llama
+name: Simple Argument (Local)
+description: Two llama3 agents debate a topic freely (no strict constraints).
+
+# Optional user seed topic
+objective: ${DEBATE_TOPIC:Choose a topic and let's debate it!}
+
+runtime:
+  message_contract:
+    require_metadata: false
+    min_citations: 0
+  logs:
+    level: INFO
+  trace:
+    enabled: true
+  max_rounds: 8
+  scheduler:
+    impl: agentrylab.runtime.scheduler.every_n.EveryNScheduler
+    params:
+      schedule:
+        agent1: 1
+        agent2: 1
+  allow_parallel_tools: false
+  fail_open_on_tool_error: true
+  default_timeout_s: 30
+  strict_budget: false
+
+room_rules:
+  topic_focus_threshold: 0.8
+  require_urls_for_factual_claims: false
+  min_urls_per_side: 0
+  max_message_len: 200
+  evidence_first_policy: false
+
+context_defaults:
+  pin_objective: true
+  pin_system_prompt: true
+
+moderation:
+  step_back:
+    allow: false
+
+providers:
+  - id: ollama_llama3
+    impl: agentrylab.runtime.providers.ollama.OllamaProvider
+    model: "llama3:latest"
+    base_url: "http://localhost:11434"
+    temperature: 0.8
+    options:
+      num_ctx: 4096
+      top_p: 0.9
+      repeat_penalty: 1.1
+
+tools: []
+advisors: []
+
+agents:
+  - id: agent1
+    role: agent
+    display_name: "Agent 1"
+    description: First arguing agent
+    provider: ollama_llama3
+    tools: []
+    context:
+      max_messages: 4
+      pin_objective: true
+      running_summary: false
+    system_prompt: |
+      You are Agent 1 in a debate. Argue your position on the topic.
+      - Be passionate but respectful
+      - Make clear, logical points
+      - Respond to your opponent's arguments
+      - Keep responses under 200 words
+      - Stay focused on the topic
+      - Be creative and engaging
+
+  - id: agent2
+    role: agent
+    display_name: "Agent 2"
+    description: Second arguing agent
+    provider: ollama_llama3
+    tools: []
+    context:
+      max_messages: 4
+      pin_objective: true
+      running_summary: false
+    system_prompt: |
+      You are Agent 2 in a debate. You must argue AGAINST Agent 1's position.
+      - Take the OPPOSITE position from Agent 1
+      - Be passionate but respectful
+      - Make clear, logical points
+      - Respond to your opponent's arguments
+      - Keep responses under 200 words
+      - Stay focused on the topic
+      - Be creative and engaging
+

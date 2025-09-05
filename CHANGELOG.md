@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.1.dev0] - Unreleased
+### Added
+- Llama‑only variants: `argue_llama.yaml`, `standup_club_llama.yaml`
+- Provider notes in mixed presets (argue, standup_club, debates)
+- New simple presets verified locally: `solo_chat.yaml`, `simple_chat.yaml`, `brainstorm.yaml`
+
+### Changed
+- Minor preset tweaks for clarity and local friendliness
+
 ## [0.1.0] - 2025-09-05
 Initial public release.
 

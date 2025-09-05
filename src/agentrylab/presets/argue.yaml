@@ -2,6 +2,8 @@
 # Simple Argument preset
 # Two llama3 agents having a natural debate without strict rules.
 # No JSON requirements, no metadata constraints - just pure argumentation.
+# Providers: Local vs. OpenAI — this preset mixes local (Ollama) and OpenAI.
+# For a local‑only variant, see `argue_llama.yaml`.
 #########################
 
 version: "1.0.0"

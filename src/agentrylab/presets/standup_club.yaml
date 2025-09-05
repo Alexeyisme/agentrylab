@@ -2,6 +2,8 @@
 # Stand‑Up Club preset (FINAL)
 # Hybrid model setup: comicA (Ollama) + comicB (GPT-4o-mini) for optimal performance.
 # Enhanced with better agent reliability and topic adherence via moderator.
+# Providers: Local vs. OpenAI — this preset mixes Ollama and OpenAI.
+# For a local‑only variant, use `standup_club_llama.yaml`.
 # Tips:
 # - Seed a topic with JOKE_TOPIC env var (see `objective`).
 # - Comedians (agents) go every turn; moderator every 2; punch_up advisor every 3; MC (summarizer) every 2 and on last.
