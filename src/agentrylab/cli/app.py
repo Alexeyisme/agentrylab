@@ -14,8 +14,36 @@ from agentrylab.lab import init_lab
 from agentrylab.persistence.store import Store
 from agentrylab.logging import setup_logging
 from agentrylab.presets import path as packaged_preset_path
+from importlib.metadata import version as pkg_version, PackageNotFoundError
 
 app = typer.Typer(add_completion=False, help="Agentry Lab CLI — minimal ceremony, maximum signal.")
+
+
+def _version_callback(value: bool) -> None:
+    if not value:
+        return
+    try:
+        v = pkg_version("agentrylab")
+    except PackageNotFoundError:
+        v = "unknown"
+    typer.echo(f"agentrylab {v}")
+    raise typer.Exit()
+
+
+@app.callback()
+def _root(
+    version: bool = typer.Option(
+        False,
+        "--version",
+        "-V",
+        help="Show version and exit",
+        callback=_version_callback,
+        is_eager=True,
+    ),
+):
+    """Agentry Lab CLI — minimal ceremony, maximum signal."""
+    # No-op: options handled via callbacks
+    return
 
 
 def _resolve_preset(preset_arg: str) -> Path:

@@ -92,6 +92,12 @@ JOKE_TOPIC="remote work" agentrylab run standup_club.yaml --max-iters 4
 agentrylab run debates.yaml --max-iters 4 --thread-id demo
 ```
 
+Check version:
+
+```bash
+agentrylab --version
+```
+
 ### User Messages (User-in-the-Loop)
 Let a human chime in via API or CLI, and optionally schedule a user turn in cadence.
 
