@@ -1,0 +1,33 @@
+version: 1
+id: user-in-loop
+name: User In Loop
+objective: ${OBJECTIVE:Chat with a human in the loop}
+
+providers:
+  - id: llama3
+    impl: agentrylab.runtime.providers.ollama.OllamaProvider
+    model: llama3:latest
+    timeout: 8
+
+agents:
+  - id: user:human
+    role: user
+  - id: bot
+    role: agent
+    provider: llama3
+    system_prompt: "You are a helpful bot responding to the user."
+
+summarizer:
+  id: recap
+  role: summarizer
+  provider: llama3
+  system_prompt: "Summarize the conversation so far in 3-5 sentences."
+  max_summary_chars: 400
+
+runtime:
+  scheduler:
+    impl: agentrylab.runtime.scheduler.round_robin.RoundRobinScheduler
+    params:
+      order: [user:human, bot, recap]
+  context_defaults:
+    pin_objective: true

@@ -6,16 +6,18 @@ from .agent import AgentNode
 from .moderator import ModeratorNode
 from .summarizer import SummarizerNode
 from .advisor import AdvisorNode
+from .user import UserNode
 
 ROLE_TO_NODE: Dict[str, Type[NodeBase]] = {
     "agent": AgentNode,
     "moderator": ModeratorNode,
     "summarizer": SummarizerNode,
     "advisor": AdvisorNode,
+    "user": UserNode,
 }
 
 # Type alias for returned node
-NodeType = Union[AgentNode, ModeratorNode, SummarizerNode, AdvisorNode]
+NodeType = Union[AgentNode, ModeratorNode, SummarizerNode, AdvisorNode, UserNode]
 
 def make_node(cfg: Any, provider: Any, tools: Dict[str, Any]) -> NodeType:
     """

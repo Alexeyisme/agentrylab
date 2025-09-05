@@ -65,13 +65,13 @@ class Tool(BaseModel):
 
 
 # ------------------------------- Nodes -------------------------------
-Role = Literal["agent", "advisor", "moderator", "summarizer"]
+Role = Literal["agent", "advisor", "moderator", "summarizer", "user"]
 
 
 class BaseNode(BaseModel):
     id: str
     role: Role
-    provider: str
+    provider: Optional[str] = None
     display_name: Optional[str] = None
     description: Optional[str] = None
     system_prompt: Optional[str] = None
@@ -144,7 +144,7 @@ class Preset(BaseModel):
     tools: List[Tool] = Field(default_factory=list)
 
     # Nodes
-    agents: List[Agent] = Field(default_factory=list)
+    agents: List[Union[Agent, User]] = Field(default_factory=list)
     advisors: List[Advisor] = Field(default_factory=list)
     moderator: Optional[Moderator] = None
     summarizer: Optional[Summarizer] = None
@@ -267,3 +267,7 @@ def load_config(path_or_dict: Union[str, Path, dict]) -> Preset:
         raw = _normalize_nodes(raw)
 
     return Preset.model_validate(raw)
+# ------------------------------- Users -------------------------------
+class User(BaseNode):
+    role: Literal["user"] = "user"
+

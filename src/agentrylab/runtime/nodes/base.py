@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 # ----------------------------- Types ---------------------------------------
-Role = Literal["agent", "moderator", "summarizer", "advisor"]
+Role = Literal["agent", "moderator", "summarizer", "advisor", "user"]
 
 class NodeAction(TypedDict, total=False):
     """Control signals emitted by nodes (primarily Moderator)."""

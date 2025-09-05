@@ -54,10 +54,14 @@ class Lab:
                 raise ValueError("Each node must have an 'id'")
             if node_id in nodes:
                 raise ValueError(f"Duplicate node id detected: {node_id}")
-            prov_key = getattr(node_cfg, "provider")
-            if prov_key not in self.providers:
-                raise ValueError(f"Unknown provider id '{prov_key}' for node '{node_id}'")
-            provider = self.providers[prov_key]
+            role = getattr(node_cfg, "role", None)
+            prov_key = getattr(node_cfg, "provider", None)
+            if role == "user":
+                provider = None
+            else:
+                if prov_key not in self.providers:
+                    raise ValueError(f"Unknown provider id '{prov_key}' for node '{node_id}'")
+                provider = self.providers[prov_key]
             tool_ids = getattr(node_cfg, "tools", []) or []
             missing = [tid for tid in tool_ids if tid not in self.tools]
             if missing:
@@ -294,31 +298,42 @@ class Lab:
                 pass
 
     # -------- user input injection --------
-    def post_user_message(self, content: str, *, user_id: str = "user", persist: bool = True) -> None:
-        """Append a user message into history (and transcript if persist=True).
+    def post_user_message(
+        self,
+        content: str,
+        *,
+        user_id: str = "user",
+        immediate: bool = True,
+        persist: bool = True,
+    ) -> None:
+        """Queue a user message and optionally inject it immediately.
 
-        This enables user participation without scheduling a UserNode. Agents
-        will see the message on the next turn via compose_messages.
+        Args:
+            content: Text of the user message.
+            user_id: Logical user id (defaults to "user").
+            immediate: When True (default), append to in-memory history right
+                away so agents on the next turn see it even without a scheduled
+                UserNode. When False, the message is only queued for a future
+                UserNode turn.
+            persist: When True and `immediate` is True, write the message to the
+                transcript immediately. Ignored if `immediate` is False.
         """
-        # Append to in-memory history immediately for next-turn context
-        entry: Dict[str, Any] = {
-            "agent_id": user_id,
-            "role": "user",
-            "content": str(content),
-        }
+        text = str(content)
+        try:
+            self.state.enqueue_user_message(user_id, text)
+        except Exception:
+            pass
+        if not immediate:
+            return
+        entry: Dict[str, Any] = {"agent_id": user_id, "role": "user", "content": text}
         try:
             self.state.history.append(entry)
         except Exception:
             pass
-        # Also enqueue into the state queue for future consumption if needed
-        try:
-            self.state.enqueue_user_message(user_id, str(content))
-        except Exception:
-            pass
-        # Optionally persist to transcript immediately for visibility in tools/CLI
         if persist:
             try:
                 from time import time as _now
+
                 t = _now()
                 self.store.append_transcript(
                     self.state.thread_id,
@@ -327,7 +342,7 @@ class Lab:
                         "iter": getattr(self.state, "iter", 0),
                         "agent_id": user_id,
                         "role": "user",
-                        "content": str(content),
+                        "content": text,
                         "metadata": None,
                         "actions": None,
                     },
