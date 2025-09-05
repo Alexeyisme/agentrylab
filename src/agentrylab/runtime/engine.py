@@ -110,6 +110,11 @@ class Engine:
     # ------------------------------------------------------------------
     def _apply_output(self, agent_id: str, out: NodeOutput, *, duration_ms: float | None = None) -> None:
         """Apply a node's output to state and persistence."""
+        # Skip empty user outputs to avoid transcript noise
+        if out.role == "user":
+            content = out.content if getattr(out, "content", None) is not None else ""
+            if not isinstance(content, str) or not content.strip():
+                return
         # Update state/history first so later consumers can see it
         if hasattr(self.state, "append_message"):
             try:

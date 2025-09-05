@@ -50,3 +50,14 @@ Examples 📦
 - Drifty Thoughts: three thinkers every turn; gentle advisor every 2; summarizer every 3 & on last
 - Research Collaboration: two scientists every turn; style coach/moderator every 2; summarizer every 2 & on last (moderator uses JSON exemplar)
 
+User in the Loop 👤
+- Schedule a `user` role to place human turns exactly where you want.
+  - Round‑Robin example: `order: ["user:alice", "assistant"]`
+  - Every‑N example: `{ "user:alice": 1, "assistant": 1, "summarizer": { every_n: 3, run_on_last: true } }`
+- Post messages via CLI/API; they are consumed on the next scheduled user turn.
+  - CLI: `agentrylab say <preset.yaml> <thread> "Hi team!" --user-id user:alice`
+  - Python: `lab.post_user_message("Hi team!", user_id="user:alice")`
+- Tips:
+  - Use IDs like `user:alice`, `user:bob` to target multiple distinct users.
+  - The `provider` field on `user` nodes is ignored by the runtime and exists only to fit the schema.
+  - Empty user turns are skipped in transcript if no message is queued.

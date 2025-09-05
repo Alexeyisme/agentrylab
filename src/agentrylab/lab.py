@@ -293,6 +293,48 @@ class Lab:
             except Exception:
                 pass
 
+    # -------- user input injection --------
+    def post_user_message(self, content: str, *, user_id: str = "user", persist: bool = True) -> None:
+        """Append a user message into history (and transcript if persist=True).
+
+        This enables user participation without scheduling a UserNode. Agents
+        will see the message on the next turn via compose_messages.
+        """
+        # Append to in-memory history immediately for next-turn context
+        entry: Dict[str, Any] = {
+            "agent_id": user_id,
+            "role": "user",
+            "content": str(content),
+        }
+        try:
+            self.state.history.append(entry)
+        except Exception:
+            pass
+        # Also enqueue into the state queue for future consumption if needed
+        try:
+            self.state.enqueue_user_message(user_id, str(content))
+        except Exception:
+            pass
+        # Optionally persist to transcript immediately for visibility in tools/CLI
+        if persist:
+            try:
+                from time import time as _now
+                t = _now()
+                self.store.append_transcript(
+                    self.state.thread_id,
+                    {
+                        "t": t,
+                        "iter": getattr(self.state, "iter", 0),
+                        "agent_id": user_id,
+                        "role": "user",
+                        "content": str(content),
+                        "metadata": None,
+                        "actions": None,
+                    },
+                )
+            except Exception:
+                pass
+
     def extend(self, *, add_iters: int) -> LabStatus:
         """
         Continue for `add_iters` more iterations (no-op if already stopped).

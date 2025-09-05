@@ -70,6 +70,8 @@ Nodes 🎭
     /citations) and may signal `STOP` or `STEP_BACK` to the engine.
   - Summarizer: consolidates progress into concise summaries.
   - Advisor: non‑blocking reviewer emitting commentary.
+  - User: scheduled user turns that inject queued user messages into the transcript/history.
+    - Note: UserNode never calls providers; the `provider` field in presets is accepted but ignored.
 - Outputs: a `NodeOutput` with `role`, `content`, optional `metadata` and
   optional `actions` (control signals consumed by the engine).
 
@@ -95,6 +97,9 @@ State 🧠
     same tick.
   - Minima are advisory (not enforced at call time).
   - `can_call_tool()` and `note_tool_call()` implement the policy.
+- User input queues
+  - `enqueue_user_message(user_id, content)`, `has_user_input`, `pop_user_input`
+  - Used by the UserNode and by API/CLI injection (Option B baseline) to feed user lines.
 - Message contracts: validates agent outputs (e.g., require citations) according
   to `runtime.message_contract`. Violations produce errors recorded in the
   transcript and fail the node turn.
@@ -110,6 +115,8 @@ Engine 🚂
   5. Increment `iter` and save a checkpoint.
 - Transcript entries include timestamps, iter index, agent id/role, content,
   metadata, actions, and latency.
+- Empty user turns: the engine skips appending empty user outputs to the transcript
+  to avoid noise when no message is queued for a scheduled user node.
 
 Persistence (Store) 📜💾
 - Transcript: append‑only JSONL, one file per thread id. Reading supports last‑N

@@ -65,7 +65,7 @@ class Tool(BaseModel):
 
 
 # ------------------------------- Nodes -------------------------------
-Role = Literal["agent", "advisor", "moderator", "summarizer"]
+Role = Literal["agent", "advisor", "moderator", "summarizer", "user"]
 
 
 class BaseNode(BaseModel):
@@ -100,6 +100,10 @@ class Moderator(BaseNode):
 class Summarizer(BaseNode):
     role: Literal["summarizer"] = "summarizer"
     max_summary_chars: Optional[int] = None
+
+
+class User(BaseNode):
+    role: Literal["user"] = "user"
 
 
 # ----------------------------- Scheduler -----------------------------
@@ -144,7 +148,7 @@ class Preset(BaseModel):
     tools: List[Tool] = Field(default_factory=list)
 
     # Nodes
-    agents: List[Agent] = Field(default_factory=list)
+    agents: List[Agent | User] = Field(default_factory=list)
     advisors: List[Advisor] = Field(default_factory=list)
     moderator: Optional[Moderator] = None
     summarizer: Optional[Summarizer] = None
