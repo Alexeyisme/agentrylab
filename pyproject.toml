@@ -11,7 +11,12 @@ requires-python = ">=3.11"
 authors = [{ name = "Alexey Kislitsin" }]
 license = "MIT"  # <-- SPDX string, not a table
 
-keywords = ["agents", "llm", "orchestration", "multi-agent", "ai"]
+keywords = [
+    "multi-agent", "llm", "ai-agents", "agent-orchestration", "python", 
+    "yaml-config", "cli-tool", "research", "experimentation", "ai-development", 
+    "openai", "ollama", "llama3", "transcripts", "checkpoints", 
+    "streaming", "hackable", "lightweight", "lab", "workflow-engine"
+]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Intended Audience :: Developers",
