@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.3] - 2025-01-27
+### 🎨 User Experience Improvements
+- **Cleaner output by default**: Disabled trace logging in all 10 presets for better first-time user experience
+- **Enhanced README**: Added fun preset descriptions with emojis and personality
+- **Strategic keywords**: Updated PyPI keywords with 20 targeted tags for better discoverability
+- **Documentation fixes**: Replaced all placeholder environment variables with proper `--objective` parameter usage
+
+### 🔧 Technical Improvements
+- **Trace logging control**: All presets now have `trace: { enabled: false }` by default
+- **Better discoverability**: Enhanced PyPI keywords covering multi-agent, LLM, research, experimentation
+- **Consistent CLI usage**: All examples now use `--objective` parameter instead of environment variables
+- **Professional appearance**: Cleaner output for production use while maintaining debugging capability
+
+### 📚 Documentation Updates
+- **README.md**: Added engaging preset descriptions right after main tagline
+- **All preset files**: Cleaned objective definitions to use proper defaults instead of env var placeholders
+- **PRESET_TIPS.md**: Updated to show proper CLI usage patterns
+- **CLI.md**: Verified examples use correct parameter syntax
+
+### 🎯 Impact
+- **Better onboarding**: New users get clean, professional output immediately
+- **Improved discoverability**: Enhanced PyPI search ranking and GitHub topic visibility
+- **Consistent experience**: All documentation examples work out-of-the-box
+- **Production ready**: Default settings optimized for real-world usage
+
 ## [0.1.2] - 2025-01-27
 ### 🚀 Major Improvements
 - **Complete preset optimization**: All 10 presets now production-ready with optimal provider assignments
