@@ -13,6 +13,13 @@ Pick preset lab setup or define your own lab (agents, tools, providers, schedule
 
 **10 preset lab environments - ready to have fun out of the box!** 🎭
 
+*🎤 **Stand-Up Club** - Two comedians riff on any topic, MC closes the set*  
+*🏛️ **Debates** - Pro/con arguments with evidence, moderator keeps it civil*  
+*🧠 **Drifty Thoughts** - Three thinkers wander playfully through ideas*  
+*🔬 **Research** - Scientists collaborate, style coach polishes the output*  
+*🛋️ **Therapy Session** - Compassionate client-therapist conversations*  
+*💡 **Brainstorm Buddies** - Idea generation with a scribe pulling shortlists*
+
 ## 🚀 Get Started in 2 Minutes
 
 ```bash
