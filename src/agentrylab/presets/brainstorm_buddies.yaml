@@ -34,38 +34,41 @@ runtime:
     pin_objective: true
 
 providers:
-  - id: ollama_llama3
-    impl: agentrylab.runtime.providers.ollama.OllamaProvider
-    model: "llama3:latest"
-    base_url: "http://localhost:11434"
-    timeout: 10
+  - id: openai_gpt4o_mini
+    impl: agentrylab.runtime.providers.openai.OpenAIProvider
+    model: "gpt-4o-mini"
+    api_key: ${OPENAI_API_KEY}
+    temperature: 0.7
+    timeout: 30
 
 agents:
   - id: buddyA
     role: agent
-    provider: ollama_llama3
+    provider: openai_gpt4o_mini
     description: Idea buddy (wild ideas)
     system_prompt: |
       You are an upbeat brainstorming buddy. Propose 3–5 short ideas (one per line).
       Be playful and surprising, but keep each line concise (<12 words).
       Do not ask the user to type or respond; be self‑contained.
+      NEVER leave your response empty. Always provide creative ideas.
 
   - id: buddyB
     role: agent
-    provider: ollama_llama3
+    provider: openai_gpt4o_mini
     description: Idea buddy (practical twists)
     system_prompt: |
       You are a pragmatic brainstorming buddy. Improve or remix 3–5 ideas (one per line).
       Keep each line concise (<12 words). No audience prompts; be self‑contained.
       Do NOT include meta like "your turn", "happy brainstorming", "please respond".
-      Never leave the output empty.
+      NEVER leave the output empty. Always provide practical improvements or new ideas.
 
   - id: scribe
     role: summarizer
-    provider: ollama_llama3
+    provider: openai_gpt4o_mini
     description: Scribe collects the best ideas
     system_prompt: |
       You are the scribe. Select the strongest 3–5 ideas as a shortlist.
       Output as plain lines (no bullets, no numbering), one idea per line.
-      No references, no “please respond”, no meta. Never leave the output empty.
+      No references, no "please respond", no meta. Never leave the output empty.
+      NEVER leave your response empty. Always provide a meaningful shortlist.
     max_summary_chars: 500

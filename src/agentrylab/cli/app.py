@@ -154,6 +154,17 @@ def run_cmd(
     stream: bool = typer.Option(True, help="Stream new events after each iteration"),
     json_out: bool = typer.Option(False, "--json/--no-json", help="Emit events in JSON instead of text"),
     resume: bool = typer.Option(True, "--resume/--no-resume", help="Resume state from checkpoint if available"),
+    interactive: bool = typer.Option(False, "--interactive/--no-interactive", help="Prompt for user input before iterations when a user node exists"),
+    interactive_user_id: Optional[str] = typer.Option(
+        None,
+        "--user-id",
+        help="Target scheduled user id for --interactive (e.g., 'user')",
+    ),
+    objective: Optional[str] = typer.Option(
+        None,
+        "--objective",
+        help="Override preset objective/topic for this run",
+    ),
 ) -> None:
     """Run a preset once (stream by default)."""
     # Load .env before interpolation/validation so ${VARS} resolve
@@ -173,6 +184,13 @@ def run_cmd(
 
     cfg = load_config(str(preset_path))
 
+    # Optional: override objective/topic for this run
+    if objective is not None:
+        try:
+            setattr(cfg, "objective", str(objective))
+        except Exception:
+            pass
+
     # Initialize logging/tracing per runtime config
     try:
         rt = getattr(cfg, "runtime", None)
@@ -185,6 +203,33 @@ def run_cmd(
 
     lab = init_lab(cfg, thread_id=thread_id, resume=resume)
 
+    # Gather user-node ids for interactive mode
+    user_ids: list[str] = []
+    try:
+        for a in getattr(cfg, "agents", []) or []:
+            if getattr(a, "role", None) == "user":
+                uid = getattr(a, "id", None)
+                if uid:
+                    user_ids.append(uid)
+    except Exception:
+        user_ids = []
+    if interactive and not user_ids:
+        typer.echo("[interactive] No user nodes found in preset; ignoring --interactive.")
+        interactive = False
+    # Choose target user id for interactive input
+    target_user: Optional[str] = None
+    if interactive and user_ids:
+        if interactive_user_id is not None:
+            if interactive_user_id not in user_ids:
+                typer.echo(
+                    "[interactive] Unknown --user-id. Available user nodes: "
+                    + ", ".join(user_ids)
+                )
+                raise typer.Exit(code=2)
+            target_user = interactive_user_id
+        else:
+            target_user = user_ids[0]
+
     if not stream:
         # Kick off the run in one go
         lab.start(max_iters=max_iters)
@@ -194,6 +239,43 @@ def run_cmd(
     # Streaming loop: tick-by-tick, printing new events
     printed = 0
     for _ in range(max_iters):
+        # Optional interactive input prior to this tick
+        if interactive and target_user:
+            # Prompt only when the next scheduled turn is the target user (RoundRobin heuristic)
+            should_prompt = True
+            try:
+                sched = getattr(getattr(cfg, "runtime", None), "scheduler", None)
+                impl = getattr(sched, "impl", "") if sched is not None else ""
+                params = getattr(sched, "params", {}) if sched is not None else {}
+                order = params.get("order") if isinstance(params, dict) else None
+                if (
+                    isinstance(impl, str)
+                    and "round_robin" in impl
+                    and isinstance(order, (list, tuple))
+                    and len(order) > 0
+                ):
+                    idx = int(getattr(lab.state, "iter", 0)) % len(order)
+                    next_agent = order[idx]
+                    should_prompt = (next_agent == target_user)
+            except Exception:
+                should_prompt = True
+
+            if should_prompt:
+                try:
+                    line = input(f"{target_user}> ").strip()
+                except EOFError:
+                    line = ""
+                except KeyboardInterrupt:
+                    typer.echo("\n(interactive) canceled by user; continuing without input…")
+                    line = ""
+                if line:
+                    try:
+                        # In interactive mode, avoid persisting the queued
+                        # message immediately so transcript shows only the
+                        # scheduled user emission (no duplicates, correct order).
+                        lab.post_user_message(line, user_id=target_user, persist=False)
+                    except Exception as e:
+                        typer.echo(f"[interactive] Failed to queue user message: {e}")
         lab.engine.tick()
         # Read full transcript and print only new entries
         try:
@@ -298,18 +380,59 @@ def extend_cmd(
 @app.command("reset")
 def reset_cmd(
     preset: str = typer.Argument(..., help="Path to YAML preset or packaged preset name"),
-    thread_id: str = typer.Argument(..., help="Thread id to reset"),
+    thread_id: Optional[str] = typer.Argument(None, help="Thread id to reset (omit with --ALL)"),
     delete_transcript: bool = typer.Option(False, help="Also delete transcript JSONL"),
+    all_: bool = typer.Option(
+        False,
+        "--all",
+        "--ALL",
+        help="Delete all threads for this preset",
+    ),
 ) -> None:
-    """Delete the checkpoint (and optionally transcript) for a thread (fresh start)."""
+    """Delete checkpoint(s) and optionally transcript(s) for a preset.
+
+    Usage:
+      - agentrylab reset <preset> <thread-id> [--delete-transcript]
+      - agentrylab reset <preset> --ALL [--delete-transcript]
+    """
+    # Validate mode selection
+    if bool(thread_id) == bool(all_):
+        raise typer.BadParameter("Specify either a <thread-id> or --ALL, but not both.")
+
     _load_env()
     preset_path = _resolve_preset(preset)
     cfg = load_config(str(preset_path))
     store = Store(cfg)
+
+    if all_:
+        rows = store.list_threads()
+        if not rows:
+            typer.echo("(no threads)")
+            return
+        count = 0
+        for tid, _ in rows:
+            store.delete_checkpoint(tid)
+            if delete_transcript:
+                try:
+                    store.delete_transcript(tid)
+                except Exception:
+                    # Best-effort: checkpoint deleted even if transcript path missing
+                    pass
+            count += 1
+        typer.echo(
+            f"Deleted {count} thread(s) for preset '{Path(preset_path).name}'"
+            f" (checkpoints{' + transcripts' if delete_transcript else ''})."
+        )
+        return
+
+    # Single thread mode
+    assert thread_id is not None
     store.delete_checkpoint(thread_id)
     if delete_transcript:
         store.delete_transcript(thread_id)
-    typer.echo(f"Reset thread {thread_id} (deleted checkpoint{' and transcript' if delete_transcript else ''}).")
+    typer.echo(
+        f"Reset thread {thread_id} (deleted checkpoint{' and transcript' if delete_transcript else ''})."
+    )
 
 
 @app.command("ls")

@@ -5,31 +5,44 @@
   <a href="https://pypi.org/project/agentrylab/"><img alt="License" src="https://img.shields.io/pypi/l/agentrylab.svg" /></a>
 </p>
 
-# Agentry Lab — Multi‑Agent Orchestration for Experiments
-**Serious tooling, delightfully unserious outcomes.** 😏
+# Agentry Lab — Multi‑Agent Orchestration Laboratory
 
-> New: Let humans heckle the agents. Schedule user turns and poke the room via CLI/API. Try:
-> `agentrylab say user_in_the_loop.yaml demo 'Hello!'` then `agentrylab run user_in_the_loop.yaml --thread-id demo --resume --max-iters 1` 🎤
+**A lightweight, hackable lab for building and experimenting with multi‑agent workflows.** 🧪⚡
 
-A lightweight, hackable lab for building and evaluating multi‑agent workflows.
-Define your lab room (agents, tools, providers, schedules) in YAML, then run and
-iterate quickly from the CLI or Python. Stream outputs, save transcripts, stash
-checkpoints — because sometimes you want agents to argue… on purpose.
+Pick preset lab setup or define your own lab (agents, tools, providers, schedules) in YAML, then run and iterate quickly from the CLI or Python. Stream outputs, save transcripts, stash checkpoints!
+
+**10 preset lab environments - ready to have fun out of the box!** 🎭
 
 ## 🚀 Get Started in 2 Minutes
 
-1. **Install**: `pip install agentrylab` (or see installation below)
-2. **Run**: `agentrylab run solo_chat.yaml --max-iters 3`
-3. **Done!** Watch your agents chat away! 🎉
+```bash
+pip install agentrylab
+```
 
-> **💡 New to multi-agent systems?** Start with **Solo Chat** - it's perfect for beginners and works great with local models like Ollama/llama3!
+### 🦙 **llama3-friendly lab presets:**
+```bash
+# Simple chat (works great with local Ollama!)
+agentrylab run solo_chat_user.yaml --max-iters 3
+
+# Quick web research
+SUMMARY_TOPIC="quantum computing" agentrylab run ddg_quick_summary.yaml
+```
+
+### 🤖 **OpenAI-friendly lab presets:**
+```bash
+# Formal debates with evidence
+agentrylab run debates.yaml --objective "Should we colonize Mars?" --max-iters 4
+
+# Comedy club (hybrid: llama3 + GPT-4o-mini)
+JOKE_TOPIC="remote work" agentrylab run standup_club.yaml --max-iters 6
+```
 
 ## ✨ Why AgentryLab?
 
 **Because single agents are boring.** 🤖
 
 - 📦 **YAML‑first presets** for agents/advisors/moderator/summarizer (your config, your rules)
-- 🔌 **Pluggable LLM providers** (OpenAI, Ollama) and tools (ddgs, Wolfram Alpha)
+- 🔌 **Pluggable LLM providers** (OpenAI, Ollama) and tools (DuckDuckGo, Wolfram Alpha)
 - 📡 **Streaming CLI** with resume support and transcript/DB persistence (forget nothing, replay everything)
 - ⏳ **Smart budgets** for tools (per‑run/per‑iteration) with shared‑per‑tick semantics (no more runaway tool spam)
 - 🧩 **Small, readable runtime**: nodes, scheduler, engine, state (batteries included, drama optional)
@@ -83,13 +96,26 @@ Spin up a room and let the sparks fly:
 
 ```bash
 # Simple chat (works with Ollama/llama3)
-agentrylab run solo_chat.yaml --max-iters 3
+agentrylab run solo_chat_user.yaml --max-iters 3
 
 # Or with a custom topic
 JOKE_TOPIC="remote work" agentrylab run standup_club.yaml --max-iters 4
 
 # Or a debate (needs OpenAI API key)
 agentrylab run debates.yaml --max-iters 4 --thread-id demo
+```
+
+Set a custom objective/topic at runtime:
+
+```bash
+agentrylab run debates.yaml --thread-id debate1 --objective "Proposition: apples — good or scam?" --max-iters 4
+```
+
+Interactive mode (prompt for user message each round when a user node exists):
+
+```bash
+# Solo chat with a scheduled user turn; prompt on each iteration
+agentrylab run solo_chat_user.yaml --thread-id demo --resume --max-iters 3 --interactive --user-id user
 ```
 
 Check version:
@@ -103,17 +129,17 @@ Let a human chime in via API or CLI, and optionally schedule a user turn in cade
 
 ```bash
 # 1) Post a user message into a thread
-agentrylab say user_in_the_loop.yaml demo 'Hello from Alice!'
+agentrylab say solo_chat_user.yaml demo 'Hello from Alice!'
 
 # 2) Run one iteration to consume it (user turn then assistant)
-agentrylab run user_in_the_loop.yaml --thread-id demo --resume --max-iters 1
+agentrylab run solo_chat_user.yaml --thread-id demo --resume --max-iters 1
 ```
 
 Python API:
 ```python
 from agentrylab import init
 
-lab = init("src/agentrylab/presets/user_in_the_loop.yaml", experiment_id="demo")
+lab = init("src/agentrylab/presets/solo_chat_user.yaml", experiment_id="demo")
 lab.post_user_message("Hello from Alice!", user_id="user:alice")
 lab.run(rounds=1)
 ```
@@ -124,8 +150,8 @@ Orchestrate from Python with minimal fuss:
 ```python
 from agentrylab import init, list_threads
 
-# 1. Create lab (using solo_chat preset - perfect for llama3!)
-lab = init("src/agentrylab/presets/solo_chat.yaml", 
+# 1. Create lab (using solo_chat_user preset - perfect for llama3!)
+lab = init("src/agentrylab/presets/solo_chat_user.yaml", 
            experiment_id="my-chat",
            prompt="Tell me about your favorite hobby!")
 
@@ -145,7 +171,7 @@ lab.state.objective = "Now tell me about your dream vacation!"
 lab.run(rounds=2)
 
 # 5. List threads
-threads = list_threads("src/agentrylab/presets/solo_chat.yaml")
+threads = list_threads("src/agentrylab/presets/solo_chat_user.yaml")
 ```
 
 Python examples:
@@ -161,7 +187,7 @@ Python examples:
 ### Basic Commands
 ```bash
 # Run a preset
-agentrylab run <preset.yaml> [--thread-id ID] [--max-iters N] [--show-last K]
+agentrylab run <preset.yaml> [--thread-id ID] [--max-iters N] [--show-last K] [--objective TEXT]
 
 # Inspect a thread's checkpoint
 agentrylab status <preset.yaml> <thread-id>
@@ -176,6 +202,7 @@ agentrylab ls <preset.yaml>
 - `--show-last K`: Show last K messages at the end
 - `--stream/--no-stream`: Enable/disable real-time streaming (default: enabled)
 - `--resume/--no-resume`: Resume from checkpoint or start fresh (default: resume)
+- `--objective TEXT`: Override the preset `objective` (topic) just for this run
 
 > **📚 Full docs**: See `src/agentrylab/docs/CLI.md` for complete command reference.
 
@@ -187,19 +214,19 @@ User-in-the-loop:
 
 Describe your room in YAML; everything else clicks into place.
 
-- **Presets**: shipped with the package; the CLI accepts packaged names like `solo_chat.yaml` (file paths work too)
+- **Presets**: shipped with the package; the CLI accepts packaged names like `solo_chat_user.yaml` (file paths work too)
 - **Providers**: OpenAI (HTTP), Ollama; add your own under `runtime/providers`
-- **Tools**: `ddgs` search, Wolfram Alpha; add your own under `runtime/tools`
+- **Tools**: DuckDuckGo search, Wolfram Alpha; add your own under `runtime/tools`
 - **Scheduler**: Round‑robin and Every‑N; build your own in `runtime/scheduler`
 
 ## 🎭 Built-in Presets
 
 Have fun out of the box — **llama3‑friendly** and non‑strict by default.
 
-### 🎤 **Solo Chat** (`solo_chat.yaml`) - **Perfect for beginners!**
-- **What**: Single friendly agent ready to chat about anything
-- **Best for**: Testing, simple conversations, llama3 users
-- **Run**: `agentrylab run solo_chat.yaml --max-iters 3`
+### 🎤 **Solo Chat (User Turn)** (`solo_chat_user.yaml`) - **Perfect for beginners!**
+- **What**: Single friendly agent with scheduled user turns
+- **Best for**: Testing, simple conversations, llama3 users, human-in-the-loop
+- **Run**: `agentrylab run solo_chat_user.yaml --max-iters 3`
 - **Topic**: `CHAT_TOPIC="your topic"`
 
 ### 🎭 **Stand‑Up Club** (`standup_club.yaml`) - **Comedy gold!**
@@ -215,7 +242,7 @@ Have fun out of the box — **llama3‑friendly** and non‑strict by default.
 - **Topic**: `TOPIC="your topic"`
 
 ### 🔬 **Research Collaboration** (`research.yaml`) - **Academic vibes**
-- **What**: Two scientists brainstorm, style coach gives clarity, moderator emits JSON actions
+- **What**: Two scientists brainstorm, style coach gives clarity, summarizer wraps up
 - **Best for**: Research, academic discussions, structured thinking
 - **Run**: `TOPIC="curious scientific question" agentrylab run research.yaml`
 - **Topic**: `TOPIC="your topic"`
@@ -244,12 +271,6 @@ Have fun out of the box — **llama3‑friendly** and non‑strict by default.
 - **Run**: `BRAINSTORM_TOPIC="rainy day activities" agentrylab run brainstorm_buddies.yaml`
 - **Topic**: `BRAINSTORM_TOPIC="your topic"`
 
-### ❓ **Follow‑Up Q&A** (`follow_up.yaml`) - **Structured interviews**
-- **What**: Explainer → interviewer → explainer → interviewer → summarizer
-- **Best for**: Educational content, interviews, structured Q&A
-- **Run**: `FOLLOWUP_TOPIC="solar panels at home" agentrylab run follow_up.yaml`
-- **Topic**: `FOLLOWUP_TOPIC="your topic"`
-
 ### 🏛️ **Debates** (`debates.yaml`) - **Formal arguments**
 - **What**: Pro/con debaters with moderator and evidence-based arguments
 - **Best for**: Formal debates, argument analysis, structured discussions
@@ -258,26 +279,12 @@ Have fun out of the box — **llama3‑friendly** and non‑strict by default.
 
 ### 🗣️ **Simple Argument** (`argue.yaml`) - **Casual debates**
 - **What**: Two agents having a natural debate without strict rules
-- **Best for**: Casual arguments, opinion discussions, llama3 users
+- **Best for**: Casual arguments, opinion discussions
 - **Run**: `DEBATE_TOPIC="Should remote work become standard?" agentrylab run argue.yaml`
 - **Topic**: `DEBATE_TOPIC="your topic"`
 
-> **💡 Pro tip**: Start with **Solo Chat** for testing, then try **Stand‑Up Club** for fun!  
+> **💡 Pro tip**: Start with **Solo Chat (User Turn)** for testing, then try **Stand‑Up Club** for fun!  
 > **📚 More tips**: See `src/agentrylab/docs/PRESET_TIPS.md` for advanced configuration.
-
-### 👤 User in the Loop (`user_in_the_loop.yaml`) — Human turn in the cadence
-- What: A scheduled `user` node consumes queued user messages before the assistant
-- Best for: Interactive runs where a human can steer between turns
-- Try:
-  - `agentrylab say user_in_the_loop.yaml demo 'Hi agents!'`
-  - `agentrylab run user_in_the_loop.yaml --thread-id demo --resume --max-iters 1`
-
-### 🗣️ Solo Chat (User Turn) (`solo_chat_user.yaml`) — Classic chat with a scheduled user
-- What: A scheduled `user` node (`user:you`) before a single assistant
-- Best for: Simple human-steered chats using local models (llama3)
-- Try:
-  - `agentrylab say solo_chat_user.yaml demo 'Hello!' --user-id user:you`
-  - `agentrylab run solo_chat_user.yaml --thread-id demo --resume --max-iters 1`
 
 ## 💰 Tool Budgets
 
@@ -309,7 +316,7 @@ Control how many times tools can be called to prevent runaway costs:
 - **Engine**: Steps the scheduler, executes nodes, applies outputs/actions
 - **Nodes**: Agent, Moderator, Summarizer, Advisor (see `runtime/nodes/*`)
 - **Providers**: Thin HTTP adapters (OpenAI, Ollama)
-- **Tools**: Simple callables with normalized envelopes (e.g., ddgs)
+- **Tools**: Simple callables with normalized envelopes (e.g., DuckDuckGo)
 - **State**: History window composition, budgets, message contracts, rollback
 
 ## 🧑‍💻 Development
@@ -337,7 +344,7 @@ make coverage
 from agentrylab import init
 
 # Initialize a lab and run for N rounds
-lab = init("src/agentrylab/presets/solo_chat.yaml", 
+lab = init("src/agentrylab/presets/solo_chat_user.yaml", 
            experiment_id="my-experiment", 
            prompt="Tell me about your favorite hobby!")
 status = lab.run(rounds=5)
@@ -352,7 +359,7 @@ for msg in lab.state.history:
 ```python
 from agentrylab import init
 
-lab = init("src/agentrylab/presets/user_in_the_loop.yaml", experiment_id="chat-1")
+lab = init("src/agentrylab/presets/solo_chat_user.yaml", experiment_id="chat-1")
 # Append a user line into history and transcript; also enqueue for scheduled user nodes
 lab.post_user_message("Please keep it concise.", user_id="user:alice")
 lab.run(rounds=1)
@@ -366,7 +373,7 @@ def on_event(ev: dict):
     print(f"Iteration {ev['iter']}: {ev['agent_id']} ({ev['role']})")
 
 lab, status = run(
-    "src/agentrylab/presets/solo_chat.yaml",
+    "src/agentrylab/presets/solo_chat_user.yaml",
     prompt="What makes jokes funny?",
     experiment_id="streaming-demo",
     rounds=5,

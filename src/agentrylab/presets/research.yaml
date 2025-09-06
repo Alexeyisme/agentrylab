@@ -14,6 +14,10 @@ description: Scientists explore a research problem with light-touch moderation.
 # Optional user seed topic (pinned when enabled)
 objective: ${TOPIC:Investigate a curious scientific question together.}
 
+# Seed content to avoid circular conversations
+user_messages:
+  - "Let's explore the fascinating question: How do quantum effects influence biological processes at the molecular level? This could revolutionize our understanding of life itself."
+
 runtime:
   max_rounds: 6
   trace: { enabled: true }
@@ -24,7 +28,6 @@ runtime:
         scientistA: 1
         scientistB: 1
         style_coach: 2
-        moderator: 2
         summarizer:
           every_n: 2
           run_on_last: true
@@ -34,11 +37,12 @@ runtime:
     pin_objective: true
 
 providers:
-  - id: ollama_llama3
-    impl: agentrylab.runtime.providers.ollama.OllamaProvider
-    model: "llama3:latest"
-    base_url: "http://localhost:11434"
-    timeout: 8
+  - id: openai_gpt4o_mini
+    impl: agentrylab.runtime.providers.openai.OpenAIProvider
+    model: "gpt-4o-mini"
+    api_key: ${OPENAI_API_KEY}
+    temperature: 0.2
+    timeout: 30
 
 tools:
   - id: search_ddg
@@ -49,47 +53,29 @@ tools:
 agents:
   - id: scientistA
     role: agent
-    provider: ollama_llama3
+    provider: openai_gpt4o_mini
     tools: [search_ddg]
     description: Focused on theory
-    system_prompt: "You are a scientist exploring theoretical explanations. Be open and creative."
+    system_prompt: "You are a theoretical physicist exploring quantum biology. Start with a specific hypothesis about quantum effects in biological systems. Be concrete and scientific. Always provide a detailed response - never leave your response empty."
   - id: scientistB
     role: agent
-    provider: ollama_llama3
+    provider: openai_gpt4o_mini
     tools: [search_ddg]
     description: Focused on experiments
-    system_prompt: "You are a scientist proposing experiments and practical tests. Keep it approachable."
-  - id: moderator
-    role: moderator
-    provider: ollama_llama3
-    tools: [search_ddg]
-    description: Senior leader moderating
-    system_prompt: |
-      You are a supportive moderator. Encourage evidence and good structure,
-      but avoid strict policing. Respond ONLY with JSON using the following keys:
-      {"summary": str, "drift": float, "action": "CONTINUE"|"STOP"|"STEP_BACK", "rollback": int, "citations": [str], "clear_summaries": bool}
-
-      Example:
-      {
-        "summary": "Concise status of progress",
-        "drift": 0.1,
-        "action": "CONTINUE",
-        "rollback": 0,
-        "citations": ["https://example.org"],
-        "clear_summaries": false
-      }
+    system_prompt: "You are an experimental biologist designing tests for quantum effects in living systems. Propose specific, measurable experiments. Always provide detailed, substantive responses. Never give empty responses - always contribute meaningful content."
   - id: summarizer
     role: summarizer
-    provider: ollama_llama3
+    provider: openai_gpt4o_mini
     description: Summarizes scientific progress
-    system_prompt: "Summarize the debate neutrally with a light, readable tone."
+    system_prompt: "Summarize the scientific discussion neutrally with a light, readable tone. Always provide a summary - never leave your response empty."
     max_summary_chars: 600
 
 advisors:
   - id: style_coach
     role: advisor
-    provider: ollama_llama3
+    provider: openai_gpt4o_mini
     description: Non-blocking style feedback
     system_prompt: |
-      You are a concise style coach. Offer 2-3 short bullets to improve clarity and structure.
-      Avoid content changes; focus on readability and organization.
+      You are a style coach. Provide 2-3 specific suggestions to improve clarity and structure.
+      Focus on readability and organization. Give direct feedback, not questions.
+      Always provide suggestions - never ask what the user wants.

@@ -33,7 +33,7 @@ providers:
     impl: agentrylab.runtime.providers.ollama.OllamaProvider
     model: "llama3:latest"
     base_url: "http://localhost:11434"
-    timeout: 8
+    timeout: 30
 
 tools:
   - id: search_ddg
@@ -52,12 +52,12 @@ agents:
     tools: [search_ddg]
     description: Web scout that searches and writes a concise summary
     system_prompt: |
-      You are a web scout. Use the Objective as your search topic.
-      The Objective text (use exactly this string) is: ${SUMMARY_TOPIC:Pick a topic to summarize from the web.}
-
+      You are a web scout. Use the Objective as your search top      
       First output: emit exactly this JSON tool call using the Objective text verbatim
       as the query (no prose, no code fences/backticks):
-      {"tools": [{"tool": "search_ddg", "args": {"query": "<replace with Objective text exactly>"}}]}
+      {"tools": [{"tool": "search_ddg", "args": {"query": "OBJECTIVE_TEXT_HERE"}}]}
+      
+      Replace "OBJECTIVE_TEXT_HERE" with the actual objective text from the context.
       Example if Objective is "quantum computing basics":
       {"tools": [{"tool": "search_ddg", "args": {"query": "quantum computing basics"}}]}
 
@@ -68,3 +68,4 @@ agents:
       - Avoid asking the user to type or respond; be self‑contained.
       - Do NOT add closing requests like "let me know if you want more".
       - Keep it to ~120 words total if possible.
+      - NEVER leave your response empty. Always provide a complete summary.

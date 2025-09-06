@@ -57,3 +57,4 @@ logs/
 uv.lock
 *.sqlite
 .direnv/
+.notes.txt

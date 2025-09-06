@@ -3,7 +3,7 @@ version: "1.0.0"                      # preset schema/version (free‑form; usef
 id: debateclub                         # unique room/config identifier (used in filenames/db)
 name: Debate Club                      # human‑friendly name (shown in UIs/logs)
 description: Oxford-style debate with evidence-first policy  # short description of the scenario
-objective: "Proposition: AI regulation should be significantly stricter to ensure safety and accountability."  # optional seed topic (pinned when enabled)
+objective: "Is ananas great on pizza?"  # optional seed topic (pinned when enabled)
 
 # === Global runtime and policy ===
 runtime:
@@ -142,6 +142,7 @@ agents:
       - Be concise (≤120 words) unless evidence is explicitly requested
       - Rebut the opponent's last point directly without repeating their text verbatim
       - Stay opposed: Do not agree with or echo the Con's arguments
+      - NEVER leave your response empty. Always provide a substantive argument
       
       PROCESS:
       1. First, search for evidence using the search tool

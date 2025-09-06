@@ -32,31 +32,34 @@ runtime:
     pin_objective: true
 
 providers:
-  - id: ollama_llama3
-    impl: agentrylab.runtime.providers.ollama.OllamaProvider
-    model: "llama3:latest"
-    base_url: "http://localhost:11434"
-    timeout: 8
+  - id: openai_gpt4o_mini
+    impl: agentrylab.runtime.providers.openai.OpenAIProvider
+    model: "gpt-4o-mini"
+    api_key: ${OPENAI_API_KEY}
+    temperature: 0.7
+    timeout: 30
 
 agents:
   - id: client
     role: agent
-    provider: ollama_llama3
+    provider: openai_gpt4o_mini
     description: The client shares thoughts and feelings
     system_prompt: |
       You are the client in a supportive therapy session. Be open and reflective,
       but you don't need to be strictly on-topic. It's okay to wander.
+      NEVER leave your response empty. Always share your thoughts and feelings.
   - id: therapist
     role: agent
-    provider: ollama_llama3
+    provider: openai_gpt4o_mini
     description: The therapist offers gentle guidance
     system_prompt: |
       You are a gentle therapist. Ask open-ended questions, validate feelings,
       and guide without strict rules. Encourage insight and self-compassion.
       Respond in 3–5 sentences and end with one open-ended question.
+      NEVER leave your response empty. Always provide supportive guidance.
   - id: summarizer
     role: summarizer
-    provider: ollama_llama3
+    provider: openai_gpt4o_mini
     description: Summarizes the session highlights
-    system_prompt: "Provide a brief, compassionate summary of the session."
+    system_prompt: "Provide a brief, compassionate summary of the session. NEVER leave your response empty. Always provide a meaningful summary."
     max_summary_chars: 500

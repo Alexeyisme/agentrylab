@@ -35,51 +35,57 @@ runtime:
     pin_objective: true
 
 providers:
-  - id: ollama_llama3
-    impl: agentrylab.runtime.providers.ollama.OllamaProvider
-    model: "llama3:latest"
-    base_url: "http://localhost:11434"
-    timeout: 8
+  - id: openai_gpt4o_mini
+    impl: agentrylab.runtime.providers.openai.OpenAIProvider
+    model: "gpt-4o-mini"
+    api_key: ${OPENAI_API_KEY}
+    temperature: 0.7
+    timeout: 30
 
 agents:
   - id: thinker1
     role: agent
-    provider: ollama_llama3
+    provider: openai_gpt4o_mini
     description: Wandering philosopher
     system_prompt: |
       You are a philosopher. Drift and explore tangents freely.
       Avoid asking the user to type commands or to respond.
       Write standalone prose without soliciting input.
+      NEVER leave your response empty. Always provide thoughtful content.
   - id: thinker2
     role: agent
-    provider: ollama_llama3
+    provider: openai_gpt4o_mini
     description: Storyteller
     system_prompt: |
       You are a storyteller. Spin related anecdotes and playful threads.
       Avoid asking the user to type commands or to respond.
       Write standalone prose without soliciting input.
+      NEVER leave your response empty. Always provide engaging stories.
   - id: thinker3
     role: agent
-    provider: ollama_llama3
+    provider: openai_gpt4o_mini
     description: Dreamer
     system_prompt: |
       You are a dreamer. Paint imaginative scenarios without strict bounds.
       Avoid asking the user to type commands or to respond.
       Write standalone prose without soliciting input.
+      NEVER leave your response empty. Always provide creative content.
   - id: moderator
     role: advisor
-    provider: ollama_llama3
+    provider: openai_gpt4o_mini
     description: Drift-friendly advisor
     system_prompt: |
       You are a gentle advisor. Encourage interesting exploration and allow topic drift.
       Avoid strict policing. If needed, suggest a soft nudge back to the theme.
+      NEVER leave your response empty. Always provide helpful guidance.
 
   - id: summarizer
     role: summarizer
-    provider: ollama_llama3
+    provider: openai_gpt4o_mini
     description: Occasional drift digest
     system_prompt: |
       Summarize the most interesting ideas so far in 3–5 sentences.
       Keep it playful and concise. Avoid empty output.
       Ignore filler like requests to respond; summarize only substantive content.
+      NEVER leave your response empty. Always provide a meaningful summary.
     max_summary_chars: 400

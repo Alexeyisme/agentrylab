@@ -83,6 +83,18 @@ class State:
         """
         messages: List[Message] = []
 
+        # --- TRACE LOGGING: log the full input context for this agent ---
+        from agentrylab.logging import emit_trace
+        agent_id = getattr(node_cfg, "id", None) or getattr(node_cfg, "display_name", None) or "unknown"
+        # We'll build up the context as we go, then log it at the end
+        trace_context = {
+            "agent_id": agent_id,
+            "system_prompt": getattr(node_cfg, "system_prompt", None),
+            "objective": getattr(self.cfg, "objective", None),
+            "max_messages": getattr(getattr(node_cfg, "context", None), "max_messages", None) or (getattr(node_cfg, "context", None) or {}).get("max_messages", None),
+            "history": []
+        }
+
         # Helper to read nested context flags with sensible fallbacks
         def _ctx_bool(key: str, default: bool = False) -> bool:
             val = None
@@ -131,6 +143,8 @@ class State:
         for ev in recent:
             role = ev.get("role")
             content = ev.get("content")
+            # Add to trace context
+            trace_context["history"].append({"role": role, "content": content})
             if role == "user":
                 if isinstance(content, (str, dict)):
                     text = content if isinstance(content, str) else json.dumps(content, ensure_ascii=False)
@@ -141,6 +155,9 @@ class State:
                     text = content if isinstance(content, str) else json.dumps(content, ensure_ascii=False)
                     messages.append(Message(role="assistant", content=text))
             # tool results are appended inline by AgentNode during the turn
+
+        # Emit the trace log for this agent's input context
+        emit_trace("agent_input_context", **trace_context)
         return messages
 
     # ------------------------------------------------------------------

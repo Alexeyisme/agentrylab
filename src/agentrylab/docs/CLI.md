@@ -24,10 +24,13 @@ Run options ⚙️
 - --show-last INT: Print the last N transcript events at the end (default: 10)
 - --stream / --no-stream: Print new events after each iteration (default: --stream)
 - --resume / --no-resume: Load saved state for the thread before running (default: --resume)
+- --objective TEXT: Override the preset objective/topic just for this run
 
 Examples 💡
 - First run with a new thread id
   - `agentrylab run src/agentrylab/presets/debates.yaml --max-iters 4 --thread-id demo --show-last 10`
+- Override objective/topic at runtime
+  - `agentrylab run src/agentrylab/presets/debates.yaml --thread-id apples --objective "Proposition: apples — good or scam?" --max-iters 4`
 - Continue (resume) the same thread
   - `agentrylab run src/agentrylab/presets/debates.yaml --max-iters 2 --thread-id demo`
 - Run without resuming (fresh state) even if a checkpoint exists
