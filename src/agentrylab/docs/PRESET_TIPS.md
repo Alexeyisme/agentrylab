@@ -3,11 +3,11 @@ Preset Tips 🧩
 Quick guidelines for making fun, llama3‑friendly presets that behave well.
 
 Environment Seeding 🔑
-- Seed a topic via env vars and pin it into the context as a user message:
-  - YAML: `objective: ${TOPIC:Your default here}` (or `JOKE_TOPIC` for stand‑up)
+- Set a topic via the CLI objective parameter:
+  - YAML: `objective: "Your default topic here"`
   - Runtime: set `runtime.context_defaults.pin_objective: true`
-  - CLI: `TOPIC="pizza" agentrylab run your.yaml ...`
-  - Python: `os.environ["TOPIC"] = "pizza"`
+  - CLI: `agentrylab run your.yaml --objective "pizza"`
+  - Python: `lab = init("your.yaml", prompt="pizza")`
 
 Cadence (Schedulers) ⏱️
 - Round‑Robin: fixed order each tick (simple and predictable)

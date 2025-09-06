@@ -11,7 +11,7 @@ id: solo_chat_user
 name: Solo Chat (User Turn)
 description: A friendly assistant that responds after a scheduled user turn each round.
 
-objective: ${CHAT_TOPIC:Say hello and ask a short question to the assistant.}
+objective: "Say hello and ask a short question to the assistant."
 
 runtime:
   trace: { enabled: true }

@@ -3,7 +3,7 @@
 # One agent calls DuckDuckGo for the given topic and summarizes top results.
 # Works with llama3 (Ollama). No strict schema; simple and fun.
 # Tips:
-# - Seed a topic with SUMMARY_TOPIC (see `objective`).
+# - Set a topic with --objective parameter (see `objective`).
 # - Single turn is enough: the agent first calls the tool, then writes the summary.
 #########################
 
@@ -13,7 +13,7 @@ name: DDG Quick Summary
 description: One agent searches DuckDuckGo and summarizes the first ~5 results with URLs.
 
 # Optional seed topic (pinned into context each turn)
-objective: ${SUMMARY_TOPIC:Pick a topic to summarize from the web.}
+objective: "Pick a topic to summarize from the web."
 
 runtime:
   max_rounds: 1

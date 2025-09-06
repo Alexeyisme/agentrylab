@@ -12,7 +12,7 @@ name: Simple Argument
 description: Two agents having a natural debate on any topic without strict constraints.
 
 # Optional user seed topic
-objective: ${DEBATE_TOPIC:Choose a topic and let's debate it!}
+objective: "Choose a topic and let's debate it!"
 
 runtime:
   message_contract:

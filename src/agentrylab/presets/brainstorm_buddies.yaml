@@ -3,7 +3,7 @@
 # Simple, llama3‑friendly brainstorming with zero strictness.
 # Two idea buddies riff; a scribe pulls a shortlist every few turns.
 # Tips:
-# - Seed a topic with BRAINSTORM_TOPIC (see `objective`).
+# - Set a topic with --objective parameter (see `objective`).
 # - Cadence: both buddies every turn; scribe every 3 (and on last).
 # - Prompts avoid asking the user to type; outputs are standalone.
 #########################
@@ -14,7 +14,7 @@ name: Brainstorm Buddies
 description: Two buddies generate ideas on a topic; a scribe summarizes the top picks.
 
 # Optional topic (pinned each turn)
-objective: ${BRAINSTORM_TOPIC:Brainstorm playful, practical ideas about a fun topic.}
+objective: "Brainstorm playful, practical ideas about a fun topic."
 
 runtime:
   max_rounds: 6

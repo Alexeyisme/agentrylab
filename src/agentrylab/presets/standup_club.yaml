@@ -5,7 +5,7 @@
 # Providers: Local vs. OpenAI — this preset mixes Ollama and OpenAI.
 # For a local‑only variant, use `standup_club_llama.yaml`.
 # Tips:
-# - Seed a topic with JOKE_TOPIC env var (see `objective`).
+# - Set a topic with --objective parameter (see `objective`).
 # - Comedians (agents) go every turn; moderator every 2; punch_up advisor every 3; MC (summarizer) every 2 and on last.
 # - Prompts avoid asking the user to type; produce standalone bits.
 # - Moderator detects topic drift and can rollback if needed.
@@ -18,7 +18,7 @@ name: Stand‑Up Club
 description: Two comedians riff on a user‑provided topic; comicA (Ollama) starts, comicB (GPT-4o-mini) builds on it; a moderator keeps them on track; a punch‑up advisor chimes in; the MC wraps with a final bit.
 
 # Optional user seed topic (pinned when enabled)
-objective: ${JOKE_TOPIC:Give us a topic and we'll make it funny.}
+objective: "Give us a topic and we'll make it funny."
 
 runtime:
   max_rounds: 8

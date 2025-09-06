@@ -1,0 +1,164 @@
+Reinstall commands:
+
+cd /Users/a.kislitsin/Documents/Development/Agentry\ Lab
+python3 -m pip uninstall -y agentrylab  
+python3 -m pip install -e .   
+
+
+# CLI Examples (copy/paste)
+
+Notes
+- Name form (e.g., `debates.yaml`) resolves the packaged preset. Use a file path (e.g., `src/agentrylab/presets/debates.yaml`) if you want to run a locally edited copy.
+- Quote messages with single quotes to avoid shell history expansion.
+- Ensure providers are available (e.g., `ollama serve`, `OPENAI_API_KEY`, `WOLFRAM_APP_ID`).
+
+
+# Solo Chat With User — interactive chat (llama3-friendly)
+  src/agentrylab/presets/solo_chat_user.yaml
+  # Reset transcript for a clean start
+  agentrylab reset solo_chat_user.yaml demoit --delete-transcript
+  # Run interactively as user (user turn enabled)
+  agentrylab run solo_chat_user.yaml --thread-id demoit --resume --max-iters 5 --interactive --user-id user --objective ""
+  # Show status after run
+  agentrylab status solo_chat_user.yaml demoit
+  # List all threads for this preset
+  agentrylab ls solo_chat_user.yaml
+  # Reset again to clean up
+  agentrylab reset solo_chat_user.yaml demoit --delete-transcript
+
+# Solo Chat — non-interactive with say and extend (llama3-friendly)
+  src/agentrylab/presets/solo_chat_user.yaml
+  # Reset transcript for a clean start
+  agentrylab reset solo_chat_user.yaml demo2 --delete-transcript
+  # Queue a user message (non-interactive)
+  agentrylab say solo_chat_user.yaml demo2 'Hello, agent!' --user-id user
+  # Run one tick to process the user message
+  agentrylab run solo_chat_user.yaml --thread-id demo2 --resume --max-iters 1 --show-last 5
+  # Extend the run by 2 more turns
+  agentrylab extend solo_chat_user.yaml demo2 --add-iters 2
+  # Show status after extension
+  agentrylab status solo_chat_user.yaml demo2
+  # List all threads for this preset
+  agentrylab ls solo_chat_user.yaml
+  # Reset again to clean up
+  agentrylab reset solo_chat_user.yaml demo2 --delete-transcript
+
+
+# Debates — pretty run (+ objective override) (better with gpt-4o-mini)
+  src/agentrylab/presets/debates.yaml
+  # Reset transcript for a new debate
+  agentrylab reset debates.yaml debate1 --delete-transcript
+  # Run 4 turns with a custom objective
+  agentrylab run debates.yaml --thread-id debate1 --objective "Proposition: apples — good or scam?" --max-iters 4 --show-last 10
+  # Extend the debate by 2 more turns
+  agentrylab extend debates.yaml debate1 --add-iters 2
+  # Show status for this thread
+  agentrylab status debates.yaml debate1
+  # List all debate threads
+  agentrylab ls debates.yaml
+  # Reset again to clean up
+  agentrylab reset debates.yaml debate1 --delete-transcript
+
+  agentrylab run src/agentrylab/presets/debates.yaml --thread-id twoplustwo --max-iters 3 --show-last 8 --objective "2+2=4"
+
+
+# Debates — JSON stream (pipe to jq)
+  src/agentrylab/presets/debates.yaml
+  # Run and stream JSON output for analysis
+  agentrylab run debates.yaml --thread-id debate-json --max-iters 4 --json | jq -r '[.iter, .agent_id, .role, (.content|tostring)[:80]] | @tsv'
+
+# Argue (simpler version of debates. trying to adopt it for usage with llama3. Not so successful so far..)
+  src/agentrylab/presets/argue.yaml
+  # Run a local-llama-only argument
+  agentrylab reset argue_llama.yaml aliens_debate_mirrored --delete-transcript
+  agentrylab run argue_llama.yaml --thread-id aliens_debate_mirrored --max-iters 10 --objective "Do aliens exist?"
+
+
+# Stand‑Up Club — fun mode (multimodel. very funny.)
+  src/agentrylab/presets/standup_club.yaml
+  agentrylab reset standup_club.yaml default --delete-transcript
+  # Run a stand-up session on a custom topic
+  agentrylab run standup_club.yaml --thread-id default --max-iters 6 --show-last 10 --objective "airports"
+  # Run with default topic
+  agentrylab run standup_club.yaml --max-iters 6 --show-last 10
+  # Show status
+  agentrylab status standup_club.yaml default
+  # List threads
+  agentrylab ls standup_club.yaml
+  # llama‑only: standup_club_llama.yaml
+
+
+# Drifty Thoughts — creative riffing
+  src/agentrylab/presets/drifty_thoughts.yaml
+  # Run a creative riffing session
+  agentrylab run drifty_thoughts.yaml --max-iters 4 --objective "surprising ideas"
+  # Show status
+  agentrylab status drifty_thoughts.yaml default
+  # List threads
+  agentrylab ls drifty_thoughts.yaml
+
+
+# Research — collaborative science chat (local llama3 compatible)
+  src/agentrylab/presets/research.yaml
+  # Run a collaborative science chat
+  agentrylab run research.yaml --max-iters 4 --objective "a curious scientific question"
+  # Show status
+  agentrylab status research.yaml default
+  # List threads
+  agentrylab ls research.yaml
+
+
+# Therapy Session — compassionate chat
+  # Run a therapy session
+  agentrylab run therapy_session.yaml --max-iters 3 --objective "something on your mind"
+  # Show status
+  agentrylab status therapy_session.yaml default
+  # List threads
+  agentrylab ls therapy_session.yaml
+
+
+# DDG Quick Summary — web summary with URLs
+  # Run a web summary for a topic
+  agentrylab run ddg_quick_summary.yaml --max-iters 3 --show-last 10 --objective "your topic"
+  # Show status
+  agentrylab status ddg_quick_summary.yaml default
+  # List threads
+  agentrylab ls ddg_quick_summary.yaml
+
+
+# Small Talk — friendly conversation
+  # Run a small talk session
+  agentrylab run small_talk.yaml --max-iters 4 --objective "coffee rituals"
+  # Show status
+  agentrylab status small_talk.yaml default
+  # List threads
+  agentrylab ls small_talk.yaml
+
+
+# Brainstorm Buddies — idea generation drifts encouraged
+  # Run a brainstorming session
+  agentrylab run brainstorm_buddies.yaml --max-iters 4 --objective "rainy day activities"
+  # Show status
+  agentrylab status brainstorm_buddies.yaml default
+  # List threads
+  agentrylab ls brainstorm_buddies.yaml
+
+
+# Follow‑Up Q&A — structured interview
+  # Run a follow-up Q&A session
+  agentrylab run follow_up.yaml --max-iters 4 --objective "solar panels at home"
+  # Show status
+  agentrylab status follow_up.yaml default
+  # List threads
+  agentrylab ls follow_up.yaml
+
+
+# Utilities — list/status/reset
+  # List all threads for a preset
+  agentrylab ls solo_chat.yaml
+  # Show status for a thread
+  agentrylab status debates.yaml debate1
+  # Reset a thread and delete its transcript
+  agentrylab reset solo_chat.yaml some-thread --delete-transcript
+
+

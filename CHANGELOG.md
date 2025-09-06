@@ -43,6 +43,7 @@ All notable changes to this project will be documented in this file.
 - **Error handling**: Better empty response detection and prevention
 - **Performance**: Optimized timeouts and context windows
 - **Reliability**: All presets tested and verified working
+- **Enhanced logging**: Added comprehensive trace logging for agent input context debugging
 
 ## [0.1.1] - 2025-09-05
 ### Added

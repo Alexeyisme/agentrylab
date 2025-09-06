@@ -2,7 +2,7 @@
 # Small Talk preset
 # Simple, non‑strict, llama3‑friendly preset for casual conversation.
 # Tips:
-# - Seed a topic with SMALL_TALK_TOPIC (see `objective`).
+# - Set a topic with --objective parameter (see `objective`).
 # - Two friendly agents chat; a host summarizes every few turns.
 # - Prompts avoid asking the user to type; produce standalone dialogue.
 #########################
@@ -13,7 +13,7 @@ name: Small Talk
 description: Two friendly voices chat casually about a light topic; a host recaps.
 
 # Optional user seed topic (pinned when enabled)
-objective: ${SMALL_TALK_TOPIC:Say hi and chat about something nice today.}
+objective: "Say hi and chat about something nice today."
 
 runtime:
   max_rounds: 6

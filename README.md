@@ -25,7 +25,7 @@ pip install agentrylab
 agentrylab run solo_chat_user.yaml --max-iters 3
 
 # Quick web research
-SUMMARY_TOPIC="quantum computing" agentrylab run ddg_quick_summary.yaml
+agentrylab run ddg_quick_summary.yaml --objective "quantum computing"
 ```
 
 ### 🤖 **OpenAI-friendly lab presets:**
@@ -34,7 +34,7 @@ SUMMARY_TOPIC="quantum computing" agentrylab run ddg_quick_summary.yaml
 agentrylab run debates.yaml --objective "Should we colonize Mars?" --max-iters 4
 
 # Comedy club (hybrid: llama3 + GPT-4o-mini)
-JOKE_TOPIC="remote work" agentrylab run standup_club.yaml --max-iters 6
+agentrylab run standup_club.yaml --objective "remote work" --max-iters 6
 ```
 
 ## ✨ Why AgentryLab?
@@ -99,7 +99,7 @@ Spin up a room and let the sparks fly:
 agentrylab run solo_chat_user.yaml --max-iters 3
 
 # Or with a custom topic
-JOKE_TOPIC="remote work" agentrylab run standup_club.yaml --max-iters 4
+agentrylab run standup_club.yaml --objective "remote work" --max-iters 4
 
 # Or a debate (needs OpenAI API key)
 agentrylab run debates.yaml --max-iters 4 --thread-id demo
@@ -227,49 +227,49 @@ Have fun out of the box — **llama3‑friendly** and non‑strict by default.
 - **What**: Single friendly agent with scheduled user turns
 - **Best for**: Testing, simple conversations, llama3 users, human-in-the-loop
 - **Run**: `agentrylab run solo_chat_user.yaml --max-iters 3`
-- **Topic**: `CHAT_TOPIC="your topic"`
+- **Topic**: `--objective "your topic"`
 
 ### 🎭 **Stand‑Up Club** (`standup_club.yaml`) - **Comedy gold!**
 - **What**: Two comedians riff on a topic, punch‑up advisor adds tweaks, MC closes the set
 - **Best for**: Entertainment, creative writing, humor
-- **Run**: `JOKE_TOPIC="airports" agentrylab run standup_club.yaml --max-iters 6`
-- **Topic**: `JOKE_TOPIC="your topic"`
+- **Run**: `agentrylab run standup_club.yaml --objective "airports" --max-iters 6`
+- **Topic**: `--objective "your topic"`
 
 ### 🧠 **Drifty Thoughts** (`drifty_thoughts.yaml`) - **Free-form thinking**
 - **What**: Three "thinkers" drift playfully; gentle advisor nudges; optional summarizer
 - **Best for**: Creative brainstorming, philosophical discussions
-- **Run**: `TOPIC="surprising ideas" agentrylab run drifty_thoughts.yaml`
-- **Topic**: `TOPIC="your topic"`
+- **Run**: `agentrylab run drifty_thoughts.yaml --objective "surprising ideas"`
+- **Topic**: `--objective "your topic"`
 
 ### 🔬 **Research Collaboration** (`research.yaml`) - **Academic vibes**
 - **What**: Two scientists brainstorm, style coach gives clarity, summarizer wraps up
 - **Best for**: Research, academic discussions, structured thinking
-- **Run**: `TOPIC="curious scientific question" agentrylab run research.yaml`
-- **Topic**: `TOPIC="your topic"`
+- **Run**: `agentrylab run research.yaml --objective "curious scientific question"`
+- **Topic**: `--objective "your topic"`
 
 ### 🛋️ **Therapy Session** (`therapy_session.yaml`) - **Compassionate chat**
 - **What**: Reflective client and gentle therapist; summarizer offers compassionate wrap‑up
 - **Best for**: Emotional discussions, self-reflection, supportive conversations
-- **Run**: `TOPIC="something on your mind" agentrylab run therapy_session.yaml`
-- **Topic**: `TOPIC="your topic"`
+- **Run**: `agentrylab run therapy_session.yaml --objective "something on your mind"`
+- **Topic**: `--objective "your topic"`
 
 ### 🔍 **DDG Quick Summary** (`ddg_quick_summary.yaml`) - **Web research**
 - **What**: One agent searches DuckDuckGo and writes a 5‑bullet web summary with URLs
 - **Best for**: Quick research, web summaries, fact-finding
-- **Run**: `SUMMARY_TOPIC="your topic" agentrylab run ddg_quick_summary.yaml`
-- **Topic**: `SUMMARY_TOPIC="your topic"`
+- **Run**: `agentrylab run ddg_quick_summary.yaml --objective "your topic"`
+- **Topic**: `--objective "your topic"`
 
 ### ☕ **Small Talk** (`small_talk.yaml`) - **Casual chat**
 - **What**: Two friendly voices chat; host recaps every few turns
 - **Best for**: Casual conversations, social interactions
-- **Run**: `SMALL_TALK_TOPIC="coffee rituals" agentrylab run small_talk.yaml`
-- **Topic**: `SMALL_TALK_TOPIC="your topic"`
+- **Run**: `agentrylab run small_talk.yaml --objective "coffee rituals"`
+- **Topic**: `--objective "your topic"`
 
 ### 💡 **Brainstorm Buddies** (`brainstorm_buddies.yaml`) - **Idea generation**
 - **What**: Two idea buddies riff; scribe pulls a shortlist
 - **Best for**: Brainstorming, creative ideation, problem-solving
-- **Run**: `BRAINSTORM_TOPIC="rainy day activities" agentrylab run brainstorm_buddies.yaml`
-- **Topic**: `BRAINSTORM_TOPIC="your topic"`
+- **Run**: `agentrylab run brainstorm_buddies.yaml --objective "rainy day activities"`
+- **Topic**: `--objective "your topic"`
 
 ### 🏛️ **Debates** (`debates.yaml`) - **Formal arguments**
 - **What**: Pro/con debaters with moderator and evidence-based arguments
@@ -280,8 +280,8 @@ Have fun out of the box — **llama3‑friendly** and non‑strict by default.
 ### 🗣️ **Simple Argument** (`argue.yaml`) - **Casual debates**
 - **What**: Two agents having a natural debate without strict rules
 - **Best for**: Casual arguments, opinion discussions
-- **Run**: `DEBATE_TOPIC="Should remote work become standard?" agentrylab run argue.yaml`
-- **Topic**: `DEBATE_TOPIC="your topic"`
+- **Run**: `agentrylab run argue.yaml --objective "Should remote work become standard?"`
+- **Topic**: `--objective "your topic"`
 
 > **💡 Pro tip**: Start with **Solo Chat (User Turn)** for testing, then try **Stand‑Up Club** for fun!  
 > **📚 More tips**: See `src/agentrylab/docs/PRESET_TIPS.md` for advanced configuration.
