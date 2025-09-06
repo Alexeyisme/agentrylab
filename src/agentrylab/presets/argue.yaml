@@ -21,7 +21,7 @@ runtime:
   logs:
     level: INFO
   trace:
-    enabled: true
+    enabled: false
   max_rounds: 8                     # Reasonable debate length
   scheduler:
     impl: agentrylab.runtime.scheduler.every_n.EveryNScheduler

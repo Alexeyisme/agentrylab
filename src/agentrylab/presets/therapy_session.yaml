@@ -16,7 +16,7 @@ objective: ${TOPIC:Take a breath. Start with something on your mind today.}
 
 runtime:
   max_rounds: 4
-  trace: { enabled: true }
+  trace: { enabled: false }
   scheduler:
     impl: agentrylab.runtime.scheduler.every_n.EveryNScheduler
     params:

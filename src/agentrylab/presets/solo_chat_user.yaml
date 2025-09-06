@@ -14,7 +14,7 @@ description: A friendly assistant that responds after a scheduled user turn each
 objective: "Say hello and ask a short question to the assistant."
 
 runtime:
-  trace: { enabled: true }
+  trace: { enabled: false }
   scheduler:
     impl: agentrylab.runtime.scheduler.round_robin.RoundRobinScheduler
     params:

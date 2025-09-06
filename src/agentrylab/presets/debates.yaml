@@ -15,7 +15,7 @@ runtime:
     format: "%(asctime)s %(levelname)s %(name)s: %(message)s"  # python logging format
     # file: "/tmp/agentrylab.log"   # optional: write logs to file
   trace:
-    enabled: true                   # emit lightweight JSON trace events (provider_result, etc.)
+    enabled: false                  # emit lightweight JSON trace events (provider_result, etc.)
     # file: "/tmp/agentrylab-trace.jsonl"  # optional: write trace to a file
   max_rounds: 9                        # hard stop for debate turns (summarizer may still run at end)
   scheduler:

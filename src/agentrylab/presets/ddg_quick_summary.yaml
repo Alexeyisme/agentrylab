@@ -17,7 +17,7 @@ objective: "Pick a topic to summarize from the web."
 
 runtime:
   max_rounds: 1
-  trace: { enabled: true }
+  trace: { enabled: false }
   scheduler:
     impl: agentrylab.runtime.scheduler.every_n.EveryNScheduler
     params:

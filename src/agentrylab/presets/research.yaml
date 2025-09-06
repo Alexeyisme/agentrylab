@@ -20,7 +20,7 @@ user_messages:
 
 runtime:
   max_rounds: 6
-  trace: { enabled: true }
+  trace: { enabled: false }
   scheduler:
     impl: agentrylab.runtime.scheduler.every_n.EveryNScheduler
     params:
