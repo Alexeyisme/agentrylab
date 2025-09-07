@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.4] - 2025-01-27
+### 🚀 Performance & Reliability Improvements
+- **Fixed empty response issues**: Switched debates and standup_club presets from llama3 to gpt-4o-mini for all agents
+- **Eliminated HTTP noise**: Restored httpx logging suppression for clean, professional output
+- **Consistent multi-agent performance**: All agents now use reliable gpt-4o-mini provider
+- **Production-ready presets**: Both debates and standup_club now deliver consistent, high-quality output
+
+### 🔧 Technical Fixes
+- **Provider optimization**: Replaced ollama_llama3 with openai_gpt4o_mini in debates.yaml and standup_club.yaml
+- **Logging improvements**: HTTP request logs moved to WARNING level for cleaner user experience
+- **Zero empty responses**: Eliminated blank outputs that were causing moderator STEP_BACK actions
+- **Enhanced reliability**: Multi-agent scenarios now perform consistently without degradation
+
+### 📊 Quality Improvements
+- **Professional debates**: Well-structured arguments with real citations and balanced perspectives
+- **High-quality comedy**: Creative, varied jokes without repetitive content
+- **Active advisor feedback**: punch_up advisor now provides consistent, useful suggestions
+- **Stable performance**: No more declining quality over multiple iterations
+
 ## [0.1.3] - 2025-01-27
 ### 🎨 User Experience Improvements
 - **Cleaner output by default**: Disabled trace logging in all 10 presets for better first-time user experience
