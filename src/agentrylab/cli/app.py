@@ -106,6 +106,29 @@ def _load_env_file(env_path: Path | None = None) -> None:
         pass
 
 
+def _format_agent_message(role: str, agent: str, text: str) -> str:
+    """Format agent messages with colors and emojis for better readability."""
+    # Only use colors if outputting to a terminal
+    if not sys.stdout.isatty() or os.getenv("TERM") == "dumb":
+        return f"[{role}] {agent}: {text}"
+    
+    # Color and emoji mapping for different roles
+    role_styles = {
+        "agent": ("\033[92m", "🤖"),      # Green for agents
+        "moderator": ("\033[94m", "🎯"),  # Blue for moderators  
+        "summarizer": ("\033[95m", "📝"), # Magenta for summarizers
+        "advisor": ("\033[93m", "💡"),    # Yellow for advisors
+        "user": ("\033[96m", "👤"),       # Cyan for users
+        "tool": ("\033[90m", "🔧"),       # Gray for tools
+    }
+    
+    color, emoji = role_styles.get(role, ("\033[37m", "📄"))  # Default white
+    reset = "\033[0m"
+    
+    # Format: [emoji role] agent: content
+    return f"{color}[{emoji} {role}]{reset} {agent}: {text}"
+
+
 def _load_env() -> None:
     """Load environment variables from .env using python-dotenv if available.
 
@@ -129,7 +152,10 @@ def _print_last_messages(lab, limit: int = 10) -> None:
     if not history:
         typer.echo("(no messages)")
         return
-    typer.echo("\n=== Last messages ===")
+    if sys.stdout.isatty() and os.getenv("TERM") != "dumb":
+        typer.echo("\n\033[1m\033[36m=== Last messages ===\033[0m")
+    else:
+        typer.echo("\n=== Last messages ===")
     for ev in history:
         role = ev.get("role", "?")
         agent = ev.get("agent_id", "?")
@@ -142,7 +168,7 @@ def _print_last_messages(lab, limit: int = 10) -> None:
             text = str(content) if content is not None else ""
         if len(text) > 1200:
             text = text[:1200] + "…"
-        typer.echo(f"[{role}] {agent}: {text}")
+        typer.echo(_format_agent_message(role, agent, text))
 
 
 @app.command("run")
@@ -286,7 +312,10 @@ def run_cmd(
         new = events[printed:]
         if new:
             if not json_out:
-                typer.echo("\n=== New events ===")
+                if sys.stdout.isatty() and os.getenv("TERM") != "dumb":
+                    typer.echo("\n\033[1m\033[36m=== New events ===\033[0m")
+                else:
+                    typer.echo("\n=== New events ===")
             for ev in new:
                 if json_out:
                     typer.echo(json.dumps(ev, ensure_ascii=False))
@@ -302,7 +331,7 @@ def run_cmd(
                         text = str(content) if content is not None else ""
                     if len(text) > 1200:
                         text = text[:1200] + "…"
-                    typer.echo(f"[{role}] {agent}: {text}")
+                    typer.echo(_format_agent_message(role, agent, text))
             printed += len(new)
 
     # Final tail for convenience
