@@ -66,7 +66,7 @@ providers:
 agents:
   - id: comicA
     role: agent
-    provider: ollama_llama3
+    provider: openai_gpt4o_mini
     description: Setups and light punchlines
     context:
       max_messages: 4
@@ -152,7 +152,7 @@ agents:
 
   - id: punch_up
     role: advisor
-    provider: ollama_llama3
+    provider: openai_gpt4o_mini
     description: Non‑blocking punch‑up notes
     context:
       max_messages: 3
@@ -173,7 +173,7 @@ agents:
 
   - id: mc
     role: summarizer
-    provider: ollama_llama3
+    provider: openai_gpt4o_mini
     description: MC wraps the set
     context:
       max_messages: 6

@@ -109,7 +109,7 @@ advisors:                              # array is optional; advisors are non‑b
     role: advisor
     display_name: "Style Coach"
     description: Non-blocking advisor that gives clarity/style feedback
-    provider: ollama_llama3
+    provider: openai_gpt4o_mini
     tools: []
     non_blocking: true                 # advisors never block or issue STEP_BACK/STOP
     context:
@@ -127,7 +127,7 @@ agents:
     role: agent                        # blocking debater
     display_name: "Pro"
     description: Pro-argumenting debater
-    provider: ollama_llama3
+    provider: openai_gpt4o_mini
     tools: [search_ddg]
     context:
       max_messages: 5
