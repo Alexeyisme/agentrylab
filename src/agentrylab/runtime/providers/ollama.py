@@ -14,6 +14,7 @@ import os
 import httpx
 
 from .base import LLMProvider, Message, LLMProviderError
+from ...logging import emit_trace
 
 
 DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434"
@@ -101,10 +102,13 @@ class OllamaProvider(LLMProvider):
         payload = self._build_payload(messages, stream=False, **kwargs)
         # Use a short-lived client to ensure timeouts/headers are applied consistently
         with httpx.Client(timeout=self.timeout, headers=self.headers) as client:
+            emit_trace("provider_request", provider="ollama", model=self.model, url=url)
             resp = client.post(url, json=payload)
             resp.raise_for_status()
             data = resp.json()
+            emit_trace("provider_response", provider="ollama", model=self.model, status_code=resp.status_code, response_size=len(str(data)))
         if isinstance(data, Mapping) and data.get("error"):
+            emit_trace("provider_error", provider="ollama", error=str(data.get("error")))
             raise LLMProviderError(str(data.get("error")))
         return data  # raw JSON; base class will normalize content/metadata
 

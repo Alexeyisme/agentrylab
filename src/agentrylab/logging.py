@@ -52,6 +52,16 @@ def setup_logging(cfg: Optional[Mapping[str, Any]] = None, trace: Optional[Mappi
         handlers = [logging.FileHandler(log_file, encoding="utf-8")]
 
     logging.basicConfig(level=level, format=fmt, datefmt=datefmt, handlers=handlers)
+    
+    # Configure httpx logging to be less verbose
+    # Move HTTP request logs to trace level for cleaner output
+    httpx_logger = logging.getLogger("httpx")
+    if level <= logging.INFO:
+        # If main logging is INFO or more verbose, suppress httpx INFO logs
+        httpx_logger.setLevel(logging.WARNING)
+    else:
+        # If main logging is DEBUG, show httpx DEBUG too
+        httpx_logger.setLevel(logging.DEBUG)
 
     # Optional redaction of secrets (best-effort)
     if bool(cfg.get("redact_secrets", False)):

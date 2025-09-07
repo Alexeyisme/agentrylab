@@ -11,6 +11,7 @@ import os
 import httpx
 
 from .base import LLMProvider, Message, LLMProviderError
+from ...logging import emit_trace
 
 
 DEFAULT_OPENAI_BASE_URL = "https://api.openai.com/v1"
@@ -94,10 +95,13 @@ class OpenAIProvider(LLMProvider):
                 payload[key] = kwargs[key]
 
         with httpx.Client(timeout=self.timeout, headers=self.headers) as client:
+            emit_trace("provider_request", provider="openai", model=self.model, url=url)
             resp = client.post(url, json=payload)
             try:
                 resp.raise_for_status()
             except Exception as e:
+                emit_trace("provider_error", provider="openai", error=str(e), status_code=resp.status_code)
                 raise LLMProviderError(f"OpenAI error ({resp.status_code}): {resp.text}") from e
             data = resp.json()
+            emit_trace("provider_response", provider="openai", model=self.model, status_code=resp.status_code, response_size=len(str(data)))
         return data
