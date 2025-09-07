@@ -1,13 +1,60 @@
 <p align="center">
   <a href="https://github.com/Alexeyisme/agentrylab/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/Alexeyisme/agentrylab/actions/workflows/ci.yml/badge.svg" /></a>
   <a href="https://pypi.org/project/agentrylab/"><img alt="PyPI" src="https://img.shields.io/pypi/v/agentrylab.svg" /></a>
-  <a href="https://codecov.io/gh/Alexeyisme/agentrylab"><img alt="Coverage" src="https://codecov.io/gh/Alexeyisme/agentrylab/branch/main/graph/badge.svg" /></a>
   <a href="https://pypi.org/project/agentrylab/"><img alt="License" src="https://img.shields.io/pypi/l/agentrylab.svg" /></a>
+  <a href="https://pypi.org/project/agentrylab/"><img alt="Python" src="https://img.shields.io/pypi/pyversions/agentrylab.svg" /></a>
 </p>
 
-# Agentry Lab — Multi‑Agent Orchestration Laboratory
+## Agentry Lab — Multi‑Agent Orchestration Laboratory
 
-**A lightweight, hackable lab for building and experimenting with multi‑agent workflows.** 🧪⚡
+**Agentry Lab lets you experiment with multi-agent scenarios in minutes!**
+
+Define a room, drop in agents, give them instructions — then sit back and watch the sparks fly. Jump in yourself with interactive turns, or just let the lab run. Works equally well from the CLI or Python API.
+
+```bash
+pip install agentrylab
+agentrylab run standup_club.yaml --objective "remote work" --max-iters 4
+```
+
+## 📋 Table of Contents
+
+<details>
+<summary>Click to expand</summary>
+
+- [🚀 Get Started](#-get-started-in-2-minutes)
+- [✨ Why AgentryLab?](#-why-agentrylab)
+- [📋 Requirements](#-requirements)
+- [💾 Installation](#-installation)
+- [🔧 Environment Setup](#-environment-setup)
+- [🎭 Built-in Presets](#-built-in-presets)
+- [🖥️ CLI Commands](#️-cli-commands)
+- [⚙️ Configuration](#️-configuration)
+- [💰 Tool Budgets](#-tool-budgets)
+- [📜💾 Persistence](#-persistence)
+- [🏗️ Architecture](#️-architecture-at-a-glance)
+- [🧑‍💻 Development](#-development)
+- [🐍 Python API](#-python-api)
+- [📦 Releasing](#-releasing)
+- [📋 Event Schema](#-event-schema)
+- [💾 Checkpoint Snapshot Fields](#-checkpoint-snapshot-fields)
+- [🍳 Recipes](#-recipes)
+
+</details>
+
+## 🔗 Docs quick links
+
+- CLI reference: `src/agentrylab/docs/CLI.md`
+- Config guide: `src/agentrylab/docs/CONFIG.md`
+- Providers: `src/agentrylab/docs/PROVIDERS.md`
+- Tools: `src/agentrylab/docs/TOOLS.md`
+
+## 🧠 Concepts in 30 seconds
+
+- **Agents**: Roles that speak (pro, con, comedian, scientist, aliens — no limits!)
+- **Providers**: LLM backends (OpenAI, Ollama supported)
+- **Tools**: External calls wrapped as actions (DuckDuckGo, Wolfram included — contribute your own!)
+- **Scheduler**: Who talks when (Round‑Robin, Every‑N — scheduling options available)
+- **State**: History window, budgets, summaries, actions — continue experiments anytime
 
 Pick preset lab setup or define your own lab (agents, tools, providers, schedules) in YAML, then run and iterate quickly from the CLI or Python. Stream outputs, save transcripts, stash checkpoints!
 
@@ -19,6 +66,8 @@ Pick preset lab setup or define your own lab (agents, tools, providers, schedule
 *🔬 **Research** - Scientists collaborate, style coach polishes the output*  
 *🛋️ **Therapy Session** - Compassionate client-therapist conversations*  
 *💡 **Brainstorm Buddies** - Idea generation with a scribe pulling shortlists*
+
+Want a new preset or tool? We welcome contributions — start with a tiny PR or open an issue. See CONTRIBUTING.md. Your idea might ship in the next release.
 
 ## 🚀 Get Started in 2 Minutes
 
@@ -110,6 +159,22 @@ agentrylab run standup_club.yaml --objective "remote work" --max-iters 4
 
 # Or a debate (needs OpenAI API key)
 agentrylab run debates.yaml --max-iters 4 --thread-id demo
+```
+
+> Cleanup outputs fast when experimenting:
+> ```bash
+> rm -rf outputs/  # transcripts + checkpoints
+> ```
+
+### CLI Cheat‑Sheet
+
+```
+--objective TEXT   # Set topic on the fly
+--thread-id ID     # Name your run (enables resume)
+--max-iters N      # Number of iterations
+--no-resume        # Start fresh even if checkpoint exists
+--no-stream        # Print only final tail
+--show-last K      # Tail size at the end
 ```
 
 Set a custom objective/topic at runtime:
@@ -230,6 +295,21 @@ Describe your room in YAML; everything else clicks into place.
 
 Have fun out of the box — **llama3‑friendly** and non‑strict by default.
 
+### 📊 Quick Overview
+
+| Preset | Description | Best For | Provider | OpenAI? |
+|--------|-------------|----------|----------|--------|
+| [Solo Chat](#-solo-chat-user-turn-solo_chat_useryaml---perfect-for-beginners) | Single friendly agent with user turns | Testing, beginners | llama3 | ❌ |
+| [Stand‑Up Club](#-stand-up-club-standup_clubyaml---comedy-gold) | Two comedians + MC | Humor, creative writing | Hybrid | ⚠️ |
+| [Debates](#-debates-debatesyaml---formal-arguments) | Pro/con + moderator, evidence | Structured arguments | OpenAI | ✅ |
+| [Drifty Thoughts](#-drifty-thoughts-drifty_thoughtsyaml---free-form-thinking) | Three playful thinkers | Brainstorming | OpenAI | ✅ |
+| [Research](#-research-collaboration-researchyaml---academic-vibes) | Scientists + style coach | Academic, structured | OpenAI | ✅ |
+| [Therapy Session](#️-therapy-session-therapy_sessionyaml---compassionate-chat) | Client–therapist chat | Supportive conversations | OpenAI | ✅ |
+| [DDG Quick Summary](#-ddg-quick-summary-ddg_quick_summaryyaml---web-research) | Web search + summary | Quick research | llama3 | ❌ |
+| [Small Talk](#-small-talk-small_talkyaml---casual-chat) | Two voices + host | Casual chats | llama3 | ❌ |
+| [Brainstorm Buddies](#-brainstorm-buddies-brainstorm_buddiesyaml---idea-generation) | Idea gen + scribe | Creative ideation | OpenAI | ✅ |
+| [Simple Argument](#-simple-argument-argueyaml---casual-debates) | Casual debate, no rules | Opinions | Hybrid | ⚠️ |
+
 ### 🎤 **Solo Chat (User Turn)** (`solo_chat_user.yaml`) - **Perfect for beginners!**
 - **What**: Single friendly agent with scheduled user turns
 - **Best for**: Testing, simple conversations, llama3 users, human-in-the-loop
@@ -346,7 +426,9 @@ make coverage
 
 ## 🐍 Python API
 
-### Basic Usage
+### 🚀 Beginner API
+
+**Essential functions for getting started quickly:**
 ```python
 from agentrylab import init
 
@@ -362,7 +444,11 @@ for msg in lab.state.history:
     print(f"[{msg['role']}]: {msg['content']}")
 ```
 
-### Posting User Messages
+### 🔧 Advanced API
+
+**Power user features for complex workflows:**
+
+#### Posting User Messages
 ```python
 from agentrylab import init
 
@@ -372,7 +458,7 @@ lab.post_user_message("Please keep it concise.", user_id="user:alice")
 lab.run(rounds=1)
 ```
 
-### One-shot Run with Streaming
+#### One-shot Run with Streaming
 ```python
 from agentrylab import run
 
@@ -389,7 +475,7 @@ lab, status = run(
 )
 ```
 
-### Budget Management
+#### Budget Management
 ```python
 from agentrylab import init
 
@@ -410,7 +496,7 @@ snap = lab.store.load_checkpoint("budget-demo-1")
 print("Total tool calls:", snap.get("_tool_calls_run_total"))
 ```
 
-### Logging & Tracing
+#### Logging & Tracing
 ```python
 # Configure runtime logging/trace in the preset
 preset = {
@@ -424,6 +510,25 @@ preset = {
 lab = init(preset, experiment_id="log-1")
 lab.run(rounds=1)
 ```
+
+## ❓ FAQ
+
+- **Do I need OpenAI?** No. Many presets run great on llama3 via Ollama.
+- **Where are outputs stored?** `outputs/*.jsonl` (transcripts), `outputs/checkpoints.db` (state).
+- **How do I resume?** Use `--thread-id` and keep `--resume` (default).
+- **How do I set a topic?** `--objective "..."` on the CLI or `prompt="..."` in Python.
+
+## 🧯 Troubleshooting
+
+- **Empty replies with llama3**: set provider timeout to 30s; add “never leave empty” lines to system prompts; for strict multi‑agent tasks, prefer `gpt-4o-mini`.
+- **Moderator JSON errors**: use `debates.yaml` (OpenAI) or remove moderator; see `runtime/nodes/moderator.py` for JSON contract.
+
+## 🗺️ Roadmap
+
+- Tool sandboxing + more built‑in tools
+- More providers and local models
+- Preset sharing/marketplace
+- Richer moderation contracts and guardrails
 
 ## 📚 API Reference
 

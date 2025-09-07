@@ -58,3 +58,8 @@ uv.lock
 *.sqlite
 .direnv/
 .notes.txt
+
+# ----- Local helper scripts (not for source control) -----
+setup_github.sh
+setup_github_about.py
+github_setup_instructions.md
