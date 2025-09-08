@@ -8,6 +8,15 @@ from pathlib import Path
 from typing import Any, Mapping, Optional
 
 
+# Environment variables that may contain secrets and should be redacted from logs
+SECRET_ENV_VARS = [
+    "OPENAI_API_KEY",
+    "WOLFRAM_APP_ID", 
+    "OLLAMA_API_KEY",
+    "ANTHROPIC_API_KEY",  # Future-proofing for potential Anthropic support
+    "GOOGLE_API_KEY",     # Future-proofing for potential Google support
+]
+
 _LEVELS = {
     "CRITICAL": logging.CRITICAL,
     "ERROR": logging.ERROR,
@@ -68,11 +77,9 @@ def setup_logging(cfg: Optional[Mapping[str, Any]] = None, trace: Optional[Mappi
         class _RedactFilter(logging.Filter):
             def __init__(self) -> None:
                 super().__init__(name="")
-                # Collect commonly used secrets from env
+                # Collect secrets from configured environment variables
                 self._secrets = [
-                    os.getenv("OPENAI_API_KEY", ""),
-                    os.getenv("WOLFRAM_APP_ID", ""),
-                    os.getenv("OLLAMA_API_KEY", ""),
+                    os.getenv(env_var, "") for env_var in SECRET_ENV_VARS
                 ]
                 self._secrets = [s for s in self._secrets if s]
 
