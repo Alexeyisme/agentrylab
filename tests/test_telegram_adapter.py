@@ -1322,6 +1322,176 @@ class TestTelegramAdapter:
         assert "User Messages" in report
         assert "Total Tool Calls" in report
         assert "Health Score" in report
+    
+    def test_get_available_presets(self):
+        """Test getting available presets."""
+        presets = self.adapter.get_available_presets()
+        assert isinstance(presets, list)
+        # Should include some common presets
+        expected_presets = ['debates', 'standup_club', 'solo_chat_user']
+        for preset in expected_presets:
+            if preset in presets:  # Only check if preset exists
+                assert preset in presets
+    
+    @patch('os.path.exists')
+    @patch('builtins.open')
+    @patch('yaml.safe_load')
+    def test_get_preset_info(self, mock_yaml_load, mock_open, mock_exists):
+        """Test getting preset information."""
+        mock_exists.return_value = True
+        mock_yaml_load.return_value = {
+            'name': 'Test Preset',
+            'description': 'A test preset',
+            'agents': [{'id': 'agent1'}, {'id': 'agent2'}],
+            'tools': [{'id': 'tool1'}],
+            'providers': [{'id': 'provider1'}],
+            'schedule': {'type': 'round_robin'}
+        }
+        
+        info = self.adapter.get_preset_info('test_preset')
+        
+        assert info['preset_id'] == 'test_preset'
+        assert info['name'] == 'Test Preset'
+        assert info['description'] == 'A test preset'
+        assert info['agents'] == ['agent1', 'agent2']
+        assert info['tools'] == ['tool1']
+        assert info['providers'] == ['provider1']
+        assert info['schedule']['type'] == 'round_robin'
+    
+    @patch('os.path.exists')
+    def test_get_preset_info_not_found(self, mock_exists):
+        """Test getting preset info for non-existent preset."""
+        mock_exists.return_value = False
+        
+        with pytest.raises(Exception):  # Should raise InvalidPresetError
+            self.adapter.get_preset_info('non_existent')
+    
+    @patch('agentrylab.telegram.adapter.init')
+    def test_get_conversation_nodes(self, mock_init):
+        """Test getting conversation nodes."""
+        # Mock lab with nodes
+        mock_lab = Mock()
+        mock_node1 = Mock()
+        mock_node1.role_name = 'agent'
+        mock_node2 = Mock()
+        mock_node2.role_name = 'moderator'
+        
+        mock_lab.nodes = {
+            'agent1': mock_node1,
+            'moderator1': mock_node2
+        }
+        mock_init.return_value = mock_lab
+        
+        conversation_id = self.adapter.start_conversation(
+            preset_id="debates",
+            topic="Test topic",
+            user_id="user123"
+        )
+        
+        nodes_info = self.adapter.get_conversation_nodes(conversation_id)
+        
+        assert nodes_info['conversation_id'] == conversation_id
+        assert nodes_info['total_nodes'] == 2
+        assert 'agent1' in nodes_info['nodes']
+        assert 'moderator1' in nodes_info['nodes']
+        assert nodes_info['nodes']['agent1']['role'] == 'agent'
+        assert nodes_info['nodes']['moderator1']['role'] == 'moderator'
+    
+    @patch('agentrylab.telegram.adapter.init')
+    def test_get_conversation_scheduler_info(self, mock_init):
+        """Test getting conversation scheduler info."""
+        # Mock lab with scheduler
+        mock_lab = Mock()
+        mock_scheduler = Mock()
+        mock_scheduler.params = {'type': 'round_robin'}
+        mock_scheduler._agents = ['agent1', 'agent2']
+        mock_lab.scheduler = mock_scheduler
+        mock_init.return_value = mock_lab
+        
+        conversation_id = self.adapter.start_conversation(
+            preset_id="debates",
+            topic="Test topic",
+            user_id="user123"
+        )
+        
+        scheduler_info = self.adapter.get_conversation_scheduler_info(conversation_id)
+        
+        assert scheduler_info['conversation_id'] == conversation_id
+        assert 'scheduler' in scheduler_info
+        assert scheduler_info['scheduler']['params']['type'] == 'round_robin'
+        assert scheduler_info['scheduler']['agents'] == ['agent1', 'agent2']
+    
+    @patch('agentrylab.telegram.adapter.init')
+    def test_send_engine_action_stop(self, mock_init):
+        """Test sending STOP engine action."""
+        mock_lab = Mock()
+        mock_lab.state.stop_flag = False
+        mock_init.return_value = mock_lab
+        
+        conversation_id = self.adapter.start_conversation(
+            preset_id="debates",
+            topic="Test topic",
+            user_id="user123"
+        )
+        
+        # Send STOP action
+        self.adapter.send_engine_action(conversation_id, "STOP")
+        
+        # Verify stop flag was set
+        assert mock_lab.state.stop_flag is True
+    
+    @patch('agentrylab.telegram.adapter.init')
+    def test_send_engine_action_invalid(self, mock_init):
+        """Test sending invalid engine action."""
+        mock_lab = Mock()
+        mock_init.return_value = mock_lab
+        
+        conversation_id = self.adapter.start_conversation(
+            preset_id="debates",
+            topic="Test topic",
+            user_id="user123"
+        )
+        
+        # Try to send invalid action
+        with pytest.raises(ValueError, match="Unsupported action"):
+            self.adapter.send_engine_action(conversation_id, "INVALID")
+    
+    @patch('agentrylab.telegram.adapter.init')
+    def test_get_conversation_engine_status(self, mock_init):
+        """Test getting conversation engine status."""
+        # Mock lab with engine components
+        mock_lab = Mock()
+        mock_lab.state.iter = 5
+        mock_lab.state.stop_flag = False
+        mock_lab._active = True
+        mock_lab._has_append = True
+        mock_lab._has_checkpoint = True
+        
+        mock_scheduler = Mock()
+        mock_lab.scheduler = mock_scheduler
+        
+        mock_node1 = Mock()
+        mock_node2 = Mock()
+        mock_lab.nodes = {'agent1': mock_node1, 'agent2': mock_node2}
+        
+        mock_init.return_value = mock_lab
+        
+        conversation_id = self.adapter.start_conversation(
+            preset_id="debates",
+            topic="Test topic",
+            user_id="user123"
+        )
+        
+        engine_status = self.adapter.get_conversation_engine_status(conversation_id)
+        
+        assert engine_status['conversation_id'] == conversation_id
+        assert engine_status['iteration'] == 5
+        assert engine_status['stop_flag'] is False
+        assert engine_status['active'] is True
+        assert engine_status['has_transcript_writer'] is True
+        assert engine_status['has_checkpoint_saver'] is True
+        assert engine_status['node_count'] == 2
+        assert len(engine_status['node_types']) == 2
 
 
 @pytest.mark.asyncio

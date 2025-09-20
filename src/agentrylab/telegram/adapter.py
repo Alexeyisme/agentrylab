@@ -27,6 +27,37 @@ from .models import (
 logger = logging.getLogger(__name__)
 
 
+def _validate_conversation_exists(adapter_instance, conversation_id: str) -> ConversationState:
+    """Helper to validate conversation exists and return its state.
+    
+    Args:
+        adapter_instance: The TelegramAdapter instance
+        conversation_id: ID of the conversation
+        
+    Returns:
+        The conversation state
+        
+    Raises:
+        ConversationNotFoundError: If conversation is not found
+    """
+    if conversation_id not in adapter_instance._conversations:
+        raise ConversationNotFoundError(f"Conversation {conversation_id} not found")
+    return adapter_instance._conversations[conversation_id]
+
+
+def _validate_conversation_active(state: ConversationState) -> None:
+    """Helper to validate conversation is active.
+    
+    Args:
+        state: The conversation state
+        
+    Raises:
+        ConversationNotActiveError: If conversation is not active
+    """
+    if state.status != ConversationStatus.ACTIVE:
+        raise ConversationNotActiveError(f"Conversation {state.conversation_id} is not active")
+
+
 class TelegramAdapter:
     """Adapter for integrating AgentryLab with external interfaces like Telegram.
     
@@ -126,10 +157,7 @@ class TelegramAdapter:
         Raises:
             ConversationNotFoundError: If conversation is not found
         """
-        if conversation_id not in self._conversations:
-            raise ConversationNotFoundError(f"Conversation {conversation_id} not found")
-            
-        return self._conversations[conversation_id]
+        return _validate_conversation_exists(self, conversation_id)
     
     def can_resume_conversation(self, conversation_id: str) -> bool:
         """Check if a conversation can be resumed from checkpoint.
@@ -161,12 +189,8 @@ class TelegramAdapter:
             ConversationNotFoundError: If conversation is not found
             ConversationNotActiveError: If conversation is not active
         """
-        if conversation_id not in self._conversations:
-            raise ConversationNotFoundError(f"Conversation {conversation_id} not found")
-            
-        state = self._conversations[conversation_id]
-        if state.status != ConversationStatus.ACTIVE:
-            raise ConversationNotActiveError(f"Conversation {conversation_id} is not active")
+        state = _validate_conversation_exists(self, conversation_id)
+        _validate_conversation_active(state)
             
         # Create user message
         user_msg = UserMessage(
@@ -973,6 +997,183 @@ The system health is {health['health_status']} with a score of {health['health_s
         
         return report.strip()
     
+    def get_available_presets(self) -> List[str]:
+        """Get list of available preset IDs.
+        
+        Returns:
+            List of available preset IDs
+        """
+        try:
+            import os
+            import glob
+            preset_dir = os.path.join(os.path.dirname(__file__), '..', 'presets')
+            preset_files = glob.glob(os.path.join(preset_dir, '*.yaml'))
+            return [os.path.basename(f).replace('.yaml', '') for f in preset_files]
+        except Exception as e:
+            logger.warning(f"Failed to list presets: {e}")
+            return []
+    
+    def get_preset_info(self, preset_id: str) -> Dict[str, Any]:
+        """Get information about a specific preset.
+        
+        Args:
+            preset_id: ID of the preset
+            
+        Returns:
+            Dictionary with preset information
+            
+        Raises:
+            InvalidPresetError: If preset is not found
+        """
+        try:
+            import os
+            import yaml
+            preset_path = os.path.join(
+                os.path.dirname(__file__), '..', 'presets', f'{preset_id}.yaml'
+            )
+            if not os.path.exists(preset_path):
+                raise InvalidPresetError(f"Preset {preset_id} not found")
+                
+            with open(preset_path, 'r') as f:
+                preset_data = yaml.safe_load(f)
+                
+            return {
+                'preset_id': preset_id,
+                'name': preset_data.get('name', preset_id),
+                'description': preset_data.get('description', ''),
+                'agents': [agent.get('id', 'unknown') for agent in preset_data.get('agents', [])],
+                'tools': [tool.get('id', 'unknown') for tool in preset_data.get('tools', [])],
+                'providers': [provider.get('id', 'unknown') for provider in preset_data.get('providers', [])],
+                'schedule': preset_data.get('schedule', {}),
+            }
+        except Exception as e:
+            logger.error(f"Failed to get preset info for {preset_id}: {e}")
+            raise InvalidPresetError(f"Failed to load preset {preset_id}: {e}")
+    
+    def get_conversation_nodes(self, conversation_id: str) -> Dict[str, Any]:
+        """Get information about nodes in a conversation.
+        
+        Args:
+            conversation_id: ID of the conversation
+            
+        Returns:
+            Dictionary with node information
+            
+        Raises:
+            ConversationNotFoundError: If conversation is not found
+        """
+        state = _validate_conversation_exists(self, conversation_id)
+        lab = state.lab_instance
+        
+        nodes_info = {}
+        if hasattr(lab, 'nodes') and lab.nodes:
+            for node_id, node in lab.nodes.items():
+                nodes_info[node_id] = {
+                    'id': node_id,
+                    'role': getattr(node, 'role_name', 'unknown'),
+                    'type': type(node).__name__,
+                    'active': True,  # Nodes in the lab are active
+                }
+        
+        return {
+            'conversation_id': conversation_id,
+            'nodes': nodes_info,
+            'total_nodes': len(nodes_info),
+        }
+    
+    def get_conversation_scheduler_info(self, conversation_id: str) -> Dict[str, Any]:
+        """Get information about the scheduler for a conversation.
+        
+        Args:
+            conversation_id: ID of the conversation
+            
+        Returns:
+            Dictionary with scheduler information
+            
+        Raises:
+            ConversationNotFoundError: If conversation is not found
+        """
+        state = _validate_conversation_exists(self, conversation_id)
+        lab = state.lab_instance
+        
+        scheduler_info = {}
+        if hasattr(lab, 'scheduler') and lab.scheduler:
+            scheduler = lab.scheduler
+            scheduler_info = {
+                'type': type(scheduler).__name__,
+                'params': getattr(scheduler, 'params', {}),
+                'agents': getattr(scheduler, '_agents', []),
+            }
+        
+        return {
+            'conversation_id': conversation_id,
+            'scheduler': scheduler_info,
+        }
+    
+    def send_engine_action(self, conversation_id: str, action: str, **kwargs) -> None:
+        """Send an engine action to control conversation flow.
+        
+        Args:
+            conversation_id: ID of the conversation
+            action: Action type ("CONTINUE", "STOP", "STEP_BACK")
+            **kwargs: Additional action parameters
+            
+        Raises:
+            ConversationNotFoundError: If conversation is not found
+            ConversationNotActiveError: If conversation is not active
+            ValueError: If action is not supported
+        """
+        state = _validate_conversation_exists(self, conversation_id)
+        _validate_conversation_active(state)
+        
+        if action not in ["CONTINUE", "STOP", "STEP_BACK"]:
+            raise ValueError(f"Unsupported action: {action}")
+        
+        # Set appropriate state flags based on action
+        if action == "STOP":
+            state.lab_instance.state.stop_flag = True
+        elif action == "STEP_BACK":
+            # This would require more complex state management
+            logger.warning("STEP_BACK action not fully implemented")
+        # CONTINUE is implicit (no action needed)
+        
+        logger.info(f"Sent engine action {action} to conversation {conversation_id}")
+    
+    def get_conversation_engine_status(self, conversation_id: str) -> Dict[str, Any]:
+        """Get detailed engine status for a conversation.
+        
+        Args:
+            conversation_id: ID of the conversation
+            
+        Returns:
+            Dictionary with engine status information
+            
+        Raises:
+            ConversationNotFoundError: If conversation is not found
+        """
+        state = _validate_conversation_exists(self, conversation_id)
+        lab = state.lab_instance
+        
+        engine_status = {
+            'conversation_id': conversation_id,
+            'iteration': getattr(lab.state, 'iter', 0),
+            'stop_flag': getattr(lab.state, 'stop_flag', False),
+            'active': getattr(lab, '_active', False),
+            'has_transcript_writer': hasattr(lab, '_has_append') and lab._has_append,
+            'has_checkpoint_saver': hasattr(lab, '_has_checkpoint') and lab._has_checkpoint,
+        }
+        
+        # Add scheduler info
+        if hasattr(lab, 'scheduler'):
+            engine_status['scheduler_type'] = type(lab.scheduler).__name__
+        
+        # Add node info
+        if hasattr(lab, 'nodes'):
+            engine_status['node_count'] = len(lab.nodes)
+            engine_status['node_types'] = [type(node).__name__ for node in lab.nodes.values()]
+        
+        return engine_status
+    
     async def _run_conversation(self, conversation_id: str) -> None:
         """Run a conversation in the background.
         
@@ -997,10 +1198,21 @@ The system health is {health['health_status']} with a score of {health['health_s
                 if state.status != ConversationStatus.ACTIVE:
                     break
                     
-                # Convert lab event to conversation event
+                # Convert lab event to conversation event with better type detection
+                event_type = event.get("event", "agent_message")
+                if event_type == "agent_message":
+                    # Determine if it's actually a user message
+                    role = event.get("role", "")
+                    if role == "user":
+                        event_type = "user_message"
+                    elif role == "moderator":
+                        event_type = "moderator_action"
+                    elif role == "summarizer":
+                        event_type = "summary_update"
+                
                 conv_event = ConversationEvent(
                     conversation_id=conversation_id,
-                    event_type="agent_message",
+                    event_type=event_type,
                     content=str(event.get("content", "")),
                     metadata=event.get("metadata", {}),
                     iteration=event.get("iter", 0),
