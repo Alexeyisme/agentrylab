@@ -509,6 +509,136 @@ class TelegramAdapter:
         status['tool_status'] = tool_status
         return status
     
+    def set_conversation_rounds(self, conversation_id: str, rounds: int) -> None:
+        """Set the number of rounds for a conversation.
+        
+        Args:
+            conversation_id: ID of the conversation
+            rounds: Number of rounds to run
+            
+        Raises:
+            ConversationNotFoundError: If conversation is not found
+            ConversationNotActiveError: If conversation is not active
+        """
+        if conversation_id not in self._conversations:
+            raise ConversationNotFoundError(f"Conversation {conversation_id} not found")
+            
+        state = self._conversations[conversation_id]
+        if state.status != ConversationStatus.ACTIVE:
+            raise ConversationNotActiveError(f"Conversation {conversation_id} is not active")
+            
+        # Store rounds in conversation metadata
+        state.metadata['max_rounds'] = rounds
+        logger.info(f"Set conversation {conversation_id} to {rounds} rounds")
+    
+    def change_conversation_topic(self, conversation_id: str, new_topic: str) -> None:
+        """Change the topic of an active conversation.
+        
+        Args:
+            conversation_id: ID of the conversation
+            new_topic: New topic for the conversation
+            
+        Raises:
+            ConversationNotFoundError: If conversation is not found
+            ConversationNotActiveError: If conversation is not active
+        """
+        if conversation_id not in self._conversations:
+            raise ConversationNotFoundError(f"Conversation {conversation_id} not found")
+            
+        state = self._conversations[conversation_id]
+        if state.status != ConversationStatus.ACTIVE:
+            raise ConversationNotActiveError(f"Conversation {conversation_id} is not active")
+            
+        # Update topic in state
+        state.topic = new_topic
+        
+        # Update objective in lab if possible
+        lab = state.lab_instance
+        if hasattr(lab.cfg, 'objective'):
+            try:
+                lab.cfg.objective = new_topic
+            except Exception:
+                pass  # Best effort
+                
+        logger.info(f"Changed conversation {conversation_id} topic to: {new_topic}")
+    
+    def get_lab_status(self, conversation_id: str) -> Dict[str, Any]:
+        """Get the current lab status for a conversation.
+        
+        Args:
+            conversation_id: ID of the conversation
+            
+        Returns:
+            Dictionary with lab status information
+            
+        Raises:
+            ConversationNotFoundError: If conversation is not found
+        """
+        if conversation_id not in self._conversations:
+            raise ConversationNotFoundError(f"Conversation {conversation_id} not found")
+            
+        state = self._conversations[conversation_id]
+        lab = state.lab_instance
+        
+        status = {
+            'conversation_id': conversation_id,
+            'status': state.status.value,
+            'iteration': getattr(lab.state, 'iter', 0),
+            'stop_flag': getattr(lab.state, 'stop_flag', False),
+            'active': getattr(lab, '_active', False),
+            'last_ts': getattr(lab, '_last_ts', None),
+            'topic': state.topic,
+            'preset_id': state.preset_id,
+            'user_id': state.user_id,
+            'created_at': state.created_at.isoformat(),
+            'last_activity': state.last_activity.isoformat(),
+        }
+        
+        # Add metadata
+        if state.metadata:
+            status['metadata'] = state.metadata
+            
+        return status
+    
+    def get_conversation_progress(self, conversation_id: str) -> Dict[str, Any]:
+        """Get conversation progress information.
+        
+        Args:
+            conversation_id: ID of the conversation
+            
+        Returns:
+            Dictionary with progress information
+            
+        Raises:
+            ConversationNotFoundError: If conversation is not found
+        """
+        if conversation_id not in self._conversations:
+            raise ConversationNotFoundError(f"Conversation {conversation_id} not found")
+            
+        state = self._conversations[conversation_id]
+        lab = state.lab_instance
+        
+        # Get current iteration
+        current_iter = getattr(lab.state, 'iter', 0)
+        
+        # Get max rounds from metadata or default
+        max_rounds = state.metadata.get('max_rounds', 10)
+        
+        # Calculate progress
+        progress_percent = (current_iter / max_rounds * 100) if max_rounds > 0 else 0
+        
+        progress = {
+            'conversation_id': conversation_id,
+            'current_iteration': current_iter,
+            'max_rounds': max_rounds,
+            'progress_percent': min(progress_percent, 100),
+            'remaining_rounds': max(0, max_rounds - current_iter),
+            'is_complete': current_iter >= max_rounds,
+            'status': state.status.value,
+        }
+        
+        return progress
+    
     async def _run_conversation(self, conversation_id: str) -> None:
         """Run a conversation in the background.
         
@@ -524,8 +654,11 @@ class TelegramAdapter:
             # Send conversation started event
             await self._emit_event(conversation_id, "conversation_started", "Conversation started")
             
+            # Get max rounds from metadata or default to 10
+            max_rounds = state.metadata.get('max_rounds', 10)
+            
             # Run the lab with streaming
-            async for event in lab.stream(rounds=10):  # Default to 10 rounds
+            async for event in lab.stream(rounds=max_rounds):
                 # Check if conversation is still active
                 if state.status != ConversationStatus.ACTIVE:
                     break

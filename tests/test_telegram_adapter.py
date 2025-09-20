@@ -689,6 +689,216 @@ class TestTelegramAdapter:
         assert 'tool_status' in status
         assert 'ddg' in status['tool_status']
         assert status['tool_status']['ddg']['can_call'] is True
+    
+    @patch('agentrylab.telegram.adapter.init')
+    def test_set_conversation_rounds(self, mock_init):
+        """Test setting conversation rounds."""
+        mock_lab = Mock()
+        mock_init.return_value = mock_lab
+        
+        conversation_id = self.adapter.start_conversation(
+            preset_id="debates",
+            topic="Test topic",
+            user_id="user123"
+        )
+        
+        # Set rounds
+        self.adapter.set_conversation_rounds(conversation_id, 20)
+        
+        state = self.adapter.get_conversation_state(conversation_id)
+        assert state.metadata['max_rounds'] == 20
+    
+    @patch('agentrylab.telegram.adapter.init')
+    def test_set_conversation_rounds_not_found(self, mock_init):
+        """Test setting rounds for non-existent conversation."""
+        mock_lab = Mock()
+        mock_init.return_value = mock_lab
+        
+        with pytest.raises(Exception):  # Should raise ConversationNotFoundError
+            self.adapter.set_conversation_rounds("non-existent", 20)
+    
+    @patch('agentrylab.telegram.adapter.init')
+    def test_set_conversation_rounds_not_active(self, mock_init):
+        """Test setting rounds for inactive conversation."""
+        mock_lab = Mock()
+        mock_init.return_value = mock_lab
+        
+        conversation_id = self.adapter.start_conversation(
+            preset_id="debates",
+            topic="Test topic",
+            user_id="user123"
+        )
+        
+        # Pause conversation
+        self.adapter.pause_conversation(conversation_id)
+        
+        # Try to set rounds should fail
+        with pytest.raises(Exception):  # Should raise ConversationNotActiveError
+            self.adapter.set_conversation_rounds(conversation_id, 20)
+    
+    @patch('agentrylab.telegram.adapter.init')
+    def test_change_conversation_topic(self, mock_init):
+        """Test changing conversation topic."""
+        mock_lab = Mock()
+        mock_cfg = Mock()
+        mock_cfg.objective = "Original topic"
+        mock_lab.cfg = mock_cfg
+        mock_init.return_value = mock_lab
+        
+        conversation_id = self.adapter.start_conversation(
+            preset_id="debates",
+            topic="Original topic",
+            user_id="user123"
+        )
+        
+        # Change topic
+        self.adapter.change_conversation_topic(conversation_id, "New topic")
+        
+        state = self.adapter.get_conversation_state(conversation_id)
+        assert state.topic == "New topic"
+        assert mock_cfg.objective == "New topic"
+    
+    @patch('agentrylab.telegram.adapter.init')
+    def test_change_conversation_topic_not_found(self, mock_init):
+        """Test changing topic for non-existent conversation."""
+        mock_lab = Mock()
+        mock_init.return_value = mock_lab
+        
+        with pytest.raises(Exception):  # Should raise ConversationNotFoundError
+            self.adapter.change_conversation_topic("non-existent", "New topic")
+    
+    @patch('agentrylab.telegram.adapter.init')
+    def test_change_conversation_topic_not_active(self, mock_init):
+        """Test changing topic for inactive conversation."""
+        mock_lab = Mock()
+        mock_init.return_value = mock_lab
+        
+        conversation_id = self.adapter.start_conversation(
+            preset_id="debates",
+            topic="Original topic",
+            user_id="user123"
+        )
+        
+        # Pause conversation
+        self.adapter.pause_conversation(conversation_id)
+        
+        # Try to change topic should fail
+        with pytest.raises(Exception):  # Should raise ConversationNotActiveError
+            self.adapter.change_conversation_topic(conversation_id, "New topic")
+    
+    @patch('agentrylab.telegram.adapter.init')
+    def test_get_lab_status(self, mock_init):
+        """Test getting lab status."""
+        mock_lab = Mock()
+        mock_lab.state.iter = 5
+        mock_lab.state.stop_flag = False
+        mock_lab._active = True
+        mock_lab._last_ts = 1234567890.0
+        mock_init.return_value = mock_lab
+        
+        conversation_id = self.adapter.start_conversation(
+            preset_id="debates",
+            topic="Test topic",
+            user_id="user123"
+        )
+        
+        # Get lab status
+        status = self.adapter.get_lab_status(conversation_id)
+        
+        assert status['conversation_id'] == conversation_id
+        assert status['status'] == 'active'
+        assert status['iteration'] == 5
+        assert status['stop_flag'] is False
+        assert status['active'] is True
+        assert status['last_ts'] == 1234567890.0
+        assert status['topic'] == "Test topic"
+        assert status['preset_id'] == "debates"
+        assert status['user_id'] == "user123"
+        assert 'created_at' in status
+        assert 'last_activity' in status
+    
+    @patch('agentrylab.telegram.adapter.init')
+    def test_get_lab_status_not_found(self, mock_init):
+        """Test getting lab status for non-existent conversation."""
+        mock_lab = Mock()
+        mock_init.return_value = mock_lab
+        
+        with pytest.raises(Exception):  # Should raise ConversationNotFoundError
+            self.adapter.get_lab_status("non-existent")
+    
+    @patch('agentrylab.telegram.adapter.init')
+    def test_get_conversation_progress(self, mock_init):
+        """Test getting conversation progress."""
+        mock_lab = Mock()
+        mock_lab.state.iter = 3
+        mock_init.return_value = mock_lab
+        
+        conversation_id = self.adapter.start_conversation(
+            preset_id="debates",
+            topic="Test topic",
+            user_id="user123"
+        )
+        
+        # Set custom rounds
+        self.adapter.set_conversation_rounds(conversation_id, 10)
+        
+        # Get progress
+        progress = self.adapter.get_conversation_progress(conversation_id)
+        
+        assert progress['conversation_id'] == conversation_id
+        assert progress['current_iteration'] == 3
+        assert progress['max_rounds'] == 10
+        assert progress['progress_percent'] == 30.0
+        assert progress['remaining_rounds'] == 7
+        assert progress['is_complete'] is False
+        assert progress['status'] == 'active'
+    
+    @patch('agentrylab.telegram.adapter.init')
+    def test_get_conversation_progress_default_rounds(self, mock_init):
+        """Test getting progress with default rounds."""
+        mock_lab = Mock()
+        mock_lab.state.iter = 5
+        mock_init.return_value = mock_lab
+        
+        conversation_id = self.adapter.start_conversation(
+            preset_id="debates",
+            topic="Test topic",
+            user_id="user123"
+        )
+        
+        # Get progress without setting custom rounds
+        progress = self.adapter.get_conversation_progress(conversation_id)
+        
+        assert progress['current_iteration'] == 5
+        assert progress['max_rounds'] == 10  # Default
+        assert progress['progress_percent'] == 50.0
+        assert progress['remaining_rounds'] == 5
+        assert progress['is_complete'] is False
+    
+    @patch('agentrylab.telegram.adapter.init')
+    def test_get_conversation_progress_complete(self, mock_init):
+        """Test getting progress when conversation is complete."""
+        mock_lab = Mock()
+        mock_lab.state.iter = 10
+        mock_init.return_value = mock_lab
+        
+        conversation_id = self.adapter.start_conversation(
+            preset_id="debates",
+            topic="Test topic",
+            user_id="user123"
+        )
+        
+        # Set rounds to match current iteration
+        self.adapter.set_conversation_rounds(conversation_id, 10)
+        
+        # Get progress
+        progress = self.adapter.get_conversation_progress(conversation_id)
+        
+        assert progress['current_iteration'] == 10
+        assert progress['max_rounds'] == 10
+        assert progress['progress_percent'] == 100.0
+        assert progress['remaining_rounds'] == 0
+        assert progress['is_complete'] is True
 
 
 @pytest.mark.asyncio
