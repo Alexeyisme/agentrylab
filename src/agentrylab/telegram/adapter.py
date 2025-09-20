@@ -639,6 +639,137 @@ class TelegramAdapter:
         
         return progress
     
+    def get_provider_status(self, conversation_id: str) -> Dict[str, Any]:
+        """Get provider status for a conversation.
+        
+        Args:
+            conversation_id: ID of the conversation
+            
+        Returns:
+            Dictionary with provider status information
+            
+        Raises:
+            ConversationNotFoundError: If conversation is not found
+        """
+        if conversation_id not in self._conversations:
+            raise ConversationNotFoundError(f"Conversation {conversation_id} not found")
+            
+        state = self._conversations[conversation_id]
+        lab = state.lab_instance
+        
+        provider_status = {}
+        
+        # Get provider information from lab config
+        if hasattr(lab.cfg, 'providers') and lab.cfg.providers:
+            for provider in lab.cfg.providers:
+                provider_id = getattr(provider, 'id', 'unknown')
+                provider_status[provider_id] = {
+                    'id': provider_id,
+                    'impl': getattr(provider, 'impl', 'unknown'),
+                    'model': getattr(provider, 'model', 'unknown'),
+                    'api_key_configured': bool(getattr(provider, 'api_key', None)),
+                    'extra_config': getattr(provider, 'extra', {}),
+                }
+        
+        return {
+            'conversation_id': conversation_id,
+            'providers': provider_status,
+            'total_providers': len(provider_status),
+        }
+    
+    def get_tool_status(self, conversation_id: str) -> Dict[str, Any]:
+        """Get tool status for a conversation.
+        
+        Args:
+            conversation_id: ID of the conversation
+            
+        Returns:
+            Dictionary with tool status information
+            
+        Raises:
+            ConversationNotFoundError: If conversation is not found
+        """
+        if conversation_id not in self._conversations:
+            raise ConversationNotFoundError(f"Conversation {conversation_id} not found")
+            
+        state = self._conversations[conversation_id]
+        lab = state.lab_instance
+        
+        tool_status = {}
+        
+        # Get tool information from lab config
+        if hasattr(lab.cfg, 'tools') and lab.cfg.tools:
+            for tool in lab.cfg.tools:
+                tool_id = getattr(tool, 'id', 'unknown')
+                tool_status[tool_id] = {
+                    'id': tool_id,
+                    'impl': getattr(tool, 'impl', 'unknown'),
+                    'budget': getattr(tool, 'budget', {}),
+                    'enabled': True,  # Tools in config are enabled
+                }
+        
+        return {
+            'conversation_id': conversation_id,
+            'tools': tool_status,
+            'total_tools': len(tool_status),
+        }
+    
+    def get_system_health(self, conversation_id: str) -> Dict[str, Any]:
+        """Get comprehensive system health for a conversation.
+        
+        Args:
+            conversation_id: ID of the conversation
+            
+        Returns:
+            Dictionary with system health information
+            
+        Raises:
+            ConversationNotFoundError: If conversation is not found
+        """
+        if conversation_id not in self._conversations:
+            raise ConversationNotFoundError(f"Conversation {conversation_id} not found")
+            
+        state = self._conversations[conversation_id]
+        lab = state.lab_instance
+        
+        health = {
+            'conversation_id': conversation_id,
+            'status': state.status.value,
+            'iteration': getattr(lab.state, 'iter', 0),
+            'stop_flag': getattr(lab.state, 'stop_flag', False),
+            'active': getattr(lab, '_active', False),
+            'providers': self.get_provider_status(conversation_id),
+            'tools': self.get_tool_status(conversation_id),
+            'budgets': self.get_conversation_budgets(conversation_id),
+            'usage_stats': self.get_tool_usage_stats(conversation_id),
+        }
+        
+        # Calculate overall health score
+        health_score = 100
+        
+        # Deduct points for issues
+        if state.status != ConversationStatus.ACTIVE:
+            health_score -= 20
+        if getattr(lab.state, 'stop_flag', False):
+            health_score -= 30
+        if not getattr(lab, '_active', False):
+            health_score -= 10
+        
+        # Check for budget issues
+        usage_stats = health['usage_stats']
+        if usage_stats.get('total_tool_calls', 0) > 100:  # High usage
+            health_score -= 10
+        
+        health['health_score'] = max(0, health_score)
+        health['health_status'] = (
+            'excellent' if health_score >= 90 else
+            'good' if health_score >= 70 else
+            'warning' if health_score >= 50 else
+            'critical'
+        )
+        
+        return health
+    
     async def _run_conversation(self, conversation_id: str) -> None:
         """Run a conversation in the background.
         

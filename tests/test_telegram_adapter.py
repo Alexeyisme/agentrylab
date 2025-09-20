@@ -899,6 +899,207 @@ class TestTelegramAdapter:
         assert progress['progress_percent'] == 100.0
         assert progress['remaining_rounds'] == 0
         assert progress['is_complete'] is True
+    
+    @patch('agentrylab.telegram.adapter.init')
+    def test_get_provider_status(self, mock_init):
+        """Test getting provider status."""
+        # Mock lab with providers
+        mock_lab = Mock()
+        mock_provider1 = Mock()
+        mock_provider1.id = "openai_gpt4"
+        mock_provider1.impl = "agentrylab.runtime.providers.openai.OpenAIProvider"
+        mock_provider1.model = "gpt-4"
+        mock_provider1.api_key = "sk-test123"
+        mock_provider1.extra = {"max_tokens": 1000}
+        
+        mock_provider2 = Mock()
+        mock_provider2.id = "ollama_llama"
+        mock_provider2.impl = "agentrylab.runtime.providers.ollama.OllamaProvider"
+        mock_provider2.model = "llama2"
+        mock_provider2.api_key = None
+        mock_provider2.extra = {}
+        
+        mock_cfg = Mock()
+        mock_cfg.providers = [mock_provider1, mock_provider2]
+        mock_lab.cfg = mock_cfg
+        mock_init.return_value = mock_lab
+        
+        conversation_id = self.adapter.start_conversation(
+            preset_id="debates",
+            topic="Test topic",
+            user_id="user123"
+        )
+        
+        # Get provider status
+        status = self.adapter.get_provider_status(conversation_id)
+        
+        assert status['conversation_id'] == conversation_id
+        assert status['total_providers'] == 2
+        assert 'openai_gpt4' in status['providers']
+        assert 'ollama_llama' in status['providers']
+        assert status['providers']['openai_gpt4']['api_key_configured'] is True
+        assert status['providers']['ollama_llama']['api_key_configured'] is False
+        assert status['providers']['openai_gpt4']['model'] == "gpt-4"
+        assert status['providers']['ollama_llama']['model'] == "llama2"
+    
+    @patch('agentrylab.telegram.adapter.init')
+    def test_get_provider_status_no_providers(self, mock_init):
+        """Test getting provider status when no providers configured."""
+        mock_lab = Mock()
+        mock_cfg = Mock()
+        mock_cfg.providers = []
+        mock_lab.cfg = mock_cfg
+        mock_init.return_value = mock_lab
+        
+        conversation_id = self.adapter.start_conversation(
+            preset_id="debates",
+            topic="Test topic",
+            user_id="user123"
+        )
+        
+        # Get provider status
+        status = self.adapter.get_provider_status(conversation_id)
+        
+        assert status['conversation_id'] == conversation_id
+        assert status['total_providers'] == 0
+        assert status['providers'] == {}
+    
+    @patch('agentrylab.telegram.adapter.init')
+    def test_get_tool_status(self, mock_init):
+        """Test getting tool status."""
+        # Mock lab with tools
+        mock_lab = Mock()
+        mock_tool1 = Mock()
+        mock_tool1.id = "ddg"
+        mock_tool1.impl = "agentrylab.runtime.tools.ddg.DuckDuckGoTool"
+        mock_tool1.budget = {"per_run_max": 10}
+        
+        mock_tool2 = Mock()
+        mock_tool2.id = "wolfram"
+        mock_tool2.impl = "agentrylab.runtime.tools.wolfram.WolframTool"
+        mock_tool2.budget = {"per_run_max": 5}
+        
+        mock_cfg = Mock()
+        mock_cfg.tools = [mock_tool1, mock_tool2]
+        mock_lab.cfg = mock_cfg
+        mock_init.return_value = mock_lab
+        
+        conversation_id = self.adapter.start_conversation(
+            preset_id="debates",
+            topic="Test topic",
+            user_id="user123"
+        )
+        
+        # Get tool status
+        status = self.adapter.get_tool_status(conversation_id)
+        
+        assert status['conversation_id'] == conversation_id
+        assert status['total_tools'] == 2
+        assert 'ddg' in status['tools']
+        assert 'wolfram' in status['tools']
+        assert status['tools']['ddg']['enabled'] is True
+        assert status['tools']['wolfram']['enabled'] is True
+        assert status['tools']['ddg']['budget']['per_run_max'] == 10
+        assert status['tools']['wolfram']['budget']['per_run_max'] == 5
+    
+    @patch('agentrylab.telegram.adapter.init')
+    def test_get_tool_status_no_tools(self, mock_init):
+        """Test getting tool status when no tools configured."""
+        mock_lab = Mock()
+        mock_cfg = Mock()
+        mock_cfg.tools = []
+        mock_lab.cfg = mock_cfg
+        mock_init.return_value = mock_lab
+        
+        conversation_id = self.adapter.start_conversation(
+            preset_id="debates",
+            topic="Test topic",
+            user_id="user123"
+        )
+        
+        # Get tool status
+        status = self.adapter.get_tool_status(conversation_id)
+        
+        assert status['conversation_id'] == conversation_id
+        assert status['total_tools'] == 0
+        assert status['tools'] == {}
+    
+    @patch('agentrylab.telegram.adapter.init')
+    def test_get_system_health_excellent(self, mock_init):
+        """Test getting system health with excellent status."""
+        # Mock lab with good health
+        mock_lab = Mock()
+        mock_lab.state.iter = 5
+        mock_lab.state.stop_flag = False
+        mock_lab._active = True
+        mock_lab.state._tool_calls_run_total = 10
+        mock_lab.state.get_tool_budgets.return_value = {}
+        mock_lab.state._tool_calls_run_by_id = {}
+        mock_lab.state._tool_calls_iter_by_id = {}
+        mock_lab.state._tool_calls_iteration = 2
+        
+        mock_cfg = Mock()
+        mock_cfg.providers = []
+        mock_cfg.tools = []
+        mock_lab.cfg = mock_cfg
+        mock_init.return_value = mock_lab
+        
+        conversation_id = self.adapter.start_conversation(
+            preset_id="debates",
+            topic="Test topic",
+            user_id="user123"
+        )
+        
+        # Get system health
+        health = self.adapter.get_system_health(conversation_id)
+        
+        assert health['conversation_id'] == conversation_id
+        assert health['status'] == 'active'
+        assert health['iteration'] == 5
+        assert health['stop_flag'] is False
+        assert health['active'] is True
+        assert health['health_score'] == 100
+        assert health['health_status'] == 'excellent'
+        assert 'providers' in health
+        assert 'tools' in health
+        assert 'budgets' in health
+        assert 'usage_stats' in health
+    
+    @patch('agentrylab.telegram.adapter.init')
+    def test_get_system_health_critical(self, mock_init):
+        """Test getting system health with critical status."""
+        # Mock lab with poor health
+        mock_lab = Mock()
+        mock_lab.state.iter = 5
+        mock_lab.state.stop_flag = True  # Critical issue
+        mock_lab._active = False  # Another issue
+        mock_lab.state._tool_calls_run_total = 150  # High usage
+        mock_lab.state.get_tool_budgets.return_value = {}
+        mock_lab.state._tool_calls_run_by_id = {}
+        mock_lab.state._tool_calls_iter_by_id = {}
+        mock_lab.state._tool_calls_iteration = 2
+        
+        mock_cfg = Mock()
+        mock_cfg.providers = []
+        mock_cfg.tools = []
+        mock_lab.cfg = mock_cfg
+        mock_init.return_value = mock_lab
+        
+        conversation_id = self.adapter.start_conversation(
+            preset_id="debates",
+            topic="Test topic",
+            user_id="user123"
+        )
+        
+        # Get system health
+        health = self.adapter.get_system_health(conversation_id)
+        
+        assert health['conversation_id'] == conversation_id
+        assert health['status'] == 'active'
+        assert health['stop_flag'] is True
+        assert health['active'] is False
+        assert health['health_score'] == 50  # 100 - 30 (stop_flag) - 10 (not active) - 10 (high usage) = 50
+        assert health['health_status'] == 'warning'  # 50 is warning threshold
 
 
 @pytest.mark.asyncio
