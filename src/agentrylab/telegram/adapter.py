@@ -51,7 +51,8 @@ class TelegramAdapter:
         preset_id: str, 
         topic: str, 
         user_id: str,
-        conversation_id: Optional[str] = None
+        conversation_id: Optional[str] = None,
+        resume: bool = True
     ) -> str:
         """Start a new conversation.
         
@@ -60,6 +61,7 @@ class TelegramAdapter:
             topic: Topic for the conversation
             user_id: ID of the user starting the conversation
             conversation_id: Optional custom conversation ID
+            resume: Whether to resume from existing checkpoint if available
             
         Returns:
             The conversation ID
@@ -83,7 +85,7 @@ class TelegramAdapter:
                 preset_id,
                 experiment_id=conversation_id,
                 prompt=topic,
-                resume=False
+                resume=resume
             )
             
             # Create conversation state
@@ -128,6 +130,24 @@ class TelegramAdapter:
             raise ConversationNotFoundError(f"Conversation {conversation_id} not found")
             
         return self._conversations[conversation_id]
+    
+    def can_resume_conversation(self, conversation_id: str) -> bool:
+        """Check if a conversation can be resumed from checkpoint.
+        
+        Args:
+            conversation_id: ID of the conversation
+            
+        Returns:
+            True if conversation can be resumed, False otherwise
+        """
+        try:
+            # Try to load checkpoint to see if it exists
+            from agentrylab.persistence.store import Store
+            store = Store()
+            snapshot = store.load_checkpoint(conversation_id)
+            return isinstance(snapshot, dict) and snapshot and "_pickled" not in snapshot
+        except Exception:
+            return False
     
     def post_user_message(self, conversation_id: str, message: str, user_id: str) -> None:
         """Post a user message to a conversation.

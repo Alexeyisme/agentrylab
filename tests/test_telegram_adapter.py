@@ -58,7 +58,7 @@ class TestTelegramAdapter:
             "debates",
             experiment_id=conversation_id,
             prompt="Test topic",
-            resume=False
+            resume=True
         )
     
     @patch('agentrylab.telegram.adapter.init')
@@ -337,6 +337,83 @@ class TestTelegramAdapter:
         assert stats["stopped_conversations"] == 0
         assert stats["error_conversations"] == 0
         assert stats["max_concurrent"] == 10
+    
+    @patch('agentrylab.telegram.adapter.init')
+    def test_start_conversation_with_resume_false(self, mock_init):
+        """Test starting conversation with resume=False."""
+        mock_lab = Mock()
+        mock_init.return_value = mock_lab
+        
+        conversation_id = self.adapter.start_conversation(
+            preset_id="debates",
+            topic="Test topic",
+            user_id="user123",
+            resume=False
+        )
+        
+        assert conversation_id is not None
+        mock_init.assert_called_once_with(
+            "debates",
+            experiment_id=conversation_id,
+            prompt="Test topic",
+            resume=False
+        )
+    
+    @patch('agentrylab.telegram.adapter.init')
+    def test_start_conversation_with_resume_true(self, mock_init):
+        """Test starting conversation with resume=True (default)."""
+        mock_lab = Mock()
+        mock_init.return_value = mock_lab
+        
+        conversation_id = self.adapter.start_conversation(
+            preset_id="debates",
+            topic="Test topic",
+            user_id="user123",
+            resume=True
+        )
+        
+        assert conversation_id is not None
+        mock_init.assert_called_once_with(
+            "debates",
+            experiment_id=conversation_id,
+            prompt="Test topic",
+            resume=True
+        )
+    
+    @patch('agentrylab.persistence.store.Store')
+    def test_can_resume_conversation_true(self, mock_store_class):
+        """Test can_resume_conversation returns True when checkpoint exists."""
+        mock_store = Mock()
+        mock_store_class.return_value = mock_store
+        mock_store.load_checkpoint.return_value = {
+            "thread_id": "test-123",
+            "iter": 5,
+            "history": []
+        }
+        
+        result = self.adapter.can_resume_conversation("test-123")
+        assert result is True
+        mock_store.load_checkpoint.assert_called_once_with("test-123")
+    
+    @patch('agentrylab.persistence.store.Store')
+    def test_can_resume_conversation_false_no_checkpoint(self, mock_store_class):
+        """Test can_resume_conversation returns False when no checkpoint exists."""
+        mock_store = Mock()
+        mock_store_class.return_value = mock_store
+        mock_store.load_checkpoint.side_effect = Exception("No checkpoint")
+        
+        result = self.adapter.can_resume_conversation("test-123")
+        assert result is False
+    
+    @patch('agentrylab.persistence.store.Store')
+    def test_can_resume_conversation_false_pickled(self, mock_store_class):
+        """Test can_resume_conversation returns False for pickled checkpoints."""
+        mock_store = Mock()
+        mock_store_class.return_value = mock_store
+        mock_store.load_checkpoint.return_value = {"_pickled": "some_data"}
+        
+        result = self.adapter.can_resume_conversation("test-123")
+        assert result is False
 
 
 @pytest.mark.asyncio
