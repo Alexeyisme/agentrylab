@@ -770,6 +770,209 @@ class TelegramAdapter:
         
         return health
     
+    def get_conversation_analytics(self, conversation_id: str) -> Dict[str, Any]:
+        """Get conversation analytics and metrics.
+        
+        Args:
+            conversation_id: ID of the conversation
+            
+        Returns:
+            Dictionary with conversation analytics
+            
+        Raises:
+            ConversationNotFoundError: If conversation is not found
+        """
+        if conversation_id not in self._conversations:
+            raise ConversationNotFoundError(f"Conversation {conversation_id} not found")
+            
+        state = self._conversations[conversation_id]
+        lab = state.lab_instance
+        
+        # Get basic conversation info
+        analytics = {
+            'conversation_id': conversation_id,
+            'preset_id': state.preset_id,
+            'topic': state.topic,
+            'user_id': state.user_id,
+            'status': state.status.value,
+            'created_at': state.created_at.isoformat(),
+            'last_activity': state.last_activity.isoformat(),
+            'duration_seconds': (state.last_activity - state.created_at).total_seconds(),
+        }
+        
+        # Get iteration and progress info
+        current_iter = getattr(lab.state, 'iter', 0)
+        max_rounds = state.metadata.get('max_rounds', 10)
+        analytics.update({
+            'current_iteration': current_iter,
+            'max_rounds': max_rounds,
+            'progress_percent': min((current_iter / max_rounds * 100) if max_rounds > 0 else 0, 100),
+            'is_complete': current_iter >= max_rounds,
+        })
+        
+        # Get history statistics
+        history = getattr(lab.state, 'history', [])
+        analytics.update({
+            'total_messages': len(history),
+            'agent_messages': len([h for h in history if h.get('role') == 'agent']),
+            'user_messages': len([h for h in history if h.get('role') == 'user']),
+            'moderator_messages': len([h for h in history if h.get('role') == 'moderator']),
+        })
+        
+        # Get tool usage statistics
+        usage_stats = self.get_tool_usage_stats(conversation_id)
+        analytics.update({
+            'total_tool_calls': usage_stats.get('total_tool_calls', 0),
+            'iteration_tool_calls': usage_stats.get('iteration_tool_calls', 0),
+            'tool_calls_by_id': usage_stats.get('tool_calls_by_id', {}),
+        })
+        
+        # Get budget information
+        budgets = self.get_conversation_budgets(conversation_id)
+        analytics.update({
+            'budget_info': budgets,
+        })
+        
+        # Calculate efficiency metrics
+        if current_iter > 0:
+            analytics.update({
+                'messages_per_iteration': len(history) / current_iter,
+                'tool_calls_per_iteration': usage_stats.get('total_tool_calls', 0) / current_iter,
+            })
+        else:
+            analytics.update({
+                'messages_per_iteration': 0,
+                'tool_calls_per_iteration': 0,
+            })
+        
+        return analytics
+    
+    def export_conversation_data(self, conversation_id: str, format: str = "json") -> str:
+        """Export conversation data in specified format.
+        
+        Args:
+            conversation_id: ID of the conversation
+            format: Export format ("json", "yaml", "csv")
+            
+        Returns:
+            Exported data as string
+            
+        Raises:
+            ConversationNotFoundError: If conversation is not found
+            ValueError: If format is not supported
+        """
+        if conversation_id not in self._conversations:
+            raise ConversationNotFoundError(f"Conversation {conversation_id} not found")
+            
+        if format not in ["json", "yaml", "csv"]:
+            raise ValueError(f"Unsupported format: {format}. Supported formats: json, yaml, csv")
+        
+        # Collect all conversation data
+        data = {
+            'conversation_info': {
+                'conversation_id': conversation_id,
+                'preset_id': self._conversations[conversation_id].preset_id,
+                'topic': self._conversations[conversation_id].topic,
+                'user_id': self._conversations[conversation_id].user_id,
+                'status': self._conversations[conversation_id].status.value,
+                'created_at': self._conversations[conversation_id].created_at.isoformat(),
+                'last_activity': self._conversations[conversation_id].last_activity.isoformat(),
+            },
+            'analytics': self.get_conversation_analytics(conversation_id),
+            'history': self.get_conversation_history(conversation_id, limit=0),  # Get all history
+            'transcript': self.get_conversation_transcript(conversation_id, limit=0),  # Get all transcript
+            'budgets': self.get_conversation_budgets(conversation_id),
+            'usage_stats': self.get_tool_usage_stats(conversation_id),
+            'provider_status': self.get_provider_status(conversation_id),
+            'tool_status': self.get_tool_status(conversation_id),
+            'system_health': self.get_system_health(conversation_id),
+        }
+        
+        # Export in requested format
+        if format == "json":
+            import json
+            return json.dumps(data, indent=2, default=str)
+        elif format == "yaml":
+            import yaml
+            # Convert to JSON first to avoid YAML serialization issues
+            import json
+            json_str = json.dumps(data, default=str)
+            json_data = json.loads(json_str)
+            return yaml.dump(json_data, default_flow_style=False)
+        elif format == "csv":
+            # For CSV, we'll export the history as a table
+            import csv
+            import io
+            
+            output = io.StringIO()
+            if data['history']:
+                fieldnames = data['history'][0].keys()
+                writer = csv.DictWriter(output, fieldnames=fieldnames)
+                writer.writeheader()
+                writer.writerows(data['history'])
+            return output.getvalue()
+    
+    def get_conversation_summary_report(self, conversation_id: str) -> str:
+        """Generate a human-readable summary report for a conversation.
+        
+        Args:
+            conversation_id: ID of the conversation
+            
+        Returns:
+            Human-readable summary report
+            
+        Raises:
+            ConversationNotFoundError: If conversation is not found
+        """
+        if conversation_id not in self._conversations:
+            raise ConversationNotFoundError(f"Conversation {conversation_id} not found")
+            
+        analytics = self.get_conversation_analytics(conversation_id)
+        health = self.get_system_health(conversation_id)
+        
+        report = f"""
+# Conversation Summary Report
+
+## Basic Information
+- **Conversation ID**: {analytics['conversation_id']}
+- **Preset**: {analytics['preset_id']}
+- **Topic**: {analytics['topic']}
+- **User**: {analytics['user_id']}
+- **Status**: {analytics['status']}
+- **Created**: {analytics['created_at']}
+- **Last Activity**: {analytics['last_activity']}
+- **Duration**: {analytics['duration_seconds']:.1f} seconds
+
+## Progress
+- **Current Iteration**: {analytics['current_iteration']} / {analytics['max_rounds']}
+- **Progress**: {analytics['progress_percent']:.1f}%
+- **Complete**: {'Yes' if analytics['is_complete'] else 'No'}
+
+## Message Statistics
+- **Total Messages**: {analytics['total_messages']}
+- **Agent Messages**: {analytics['agent_messages']}
+- **User Messages**: {analytics['user_messages']}
+- **Moderator Messages**: {analytics['moderator_messages']}
+- **Messages per Iteration**: {analytics['messages_per_iteration']:.1f}
+
+## Tool Usage
+- **Total Tool Calls**: {analytics['total_tool_calls']}
+- **Tool Calls per Iteration**: {analytics['tool_calls_per_iteration']:.1f}
+- **Tools Used**: {', '.join(analytics['tool_calls_by_id'].keys()) if analytics['tool_calls_by_id'] else 'None'}
+
+## System Health
+- **Health Score**: {health['health_score']}/100
+- **Health Status**: {health['health_status']}
+- **Providers**: {health['providers']['total_providers']}
+- **Tools**: {health['tools']['total_tools']}
+
+## Summary
+This conversation ran for {analytics['duration_seconds']:.1f} seconds with {analytics['total_messages']} messages across {analytics['current_iteration']} iterations. 
+The system health is {health['health_status']} with a score of {health['health_score']}/100.
+"""
+        
+        return report.strip()
+    
     async def _run_conversation(self, conversation_id: str) -> None:
         """Run a conversation in the background.
         

@@ -1100,6 +1100,228 @@ class TestTelegramAdapter:
         assert health['active'] is False
         assert health['health_score'] == 50  # 100 - 30 (stop_flag) - 10 (not active) - 10 (high usage) = 50
         assert health['health_status'] == 'warning'  # 50 is warning threshold
+    
+    @patch('agentrylab.telegram.adapter.init')
+    def test_get_conversation_analytics(self, mock_init):
+        """Test getting conversation analytics."""
+        # Mock lab with analytics data
+        mock_lab = Mock()
+        mock_lab.state.iter = 5
+        mock_lab.state.history = [
+            {"role": "agent", "content": "Hello"},
+            {"role": "user", "content": "Hi"},
+            {"role": "agent", "content": "How are you?"},
+            {"role": "moderator", "content": "Continue"},
+        ]
+        mock_lab.state._tool_calls_run_total = 10
+        mock_lab.state._tool_calls_iteration = 2
+        mock_lab.state._tool_calls_run_by_id = {"ddg": 8, "wolfram": 2}
+        mock_lab.state._tool_calls_iter_by_id = {"ddg": 1, "wolfram": 1}
+        mock_lab.state.get_tool_budgets.return_value = {"ddg": {"per_run_max": 10}}
+        
+        mock_cfg = Mock()
+        mock_cfg.providers = []
+        mock_cfg.tools = []
+        mock_lab.cfg = mock_cfg
+        mock_init.return_value = mock_lab
+        
+        conversation_id = self.adapter.start_conversation(
+            preset_id="debates",
+            topic="Test topic",
+            user_id="user123"
+        )
+        
+        # Set custom rounds
+        self.adapter.set_conversation_rounds(conversation_id, 10)
+        
+        # Get analytics
+        analytics = self.adapter.get_conversation_analytics(conversation_id)
+        
+        assert analytics['conversation_id'] == conversation_id
+        assert analytics['preset_id'] == "debates"
+        assert analytics['topic'] == "Test topic"
+        assert analytics['user_id'] == "user123"
+        assert analytics['status'] == "active"
+        assert analytics['current_iteration'] == 5
+        assert analytics['max_rounds'] == 10
+        assert analytics['progress_percent'] == 50.0
+        assert analytics['is_complete'] is False
+        assert analytics['total_messages'] == 4
+        assert analytics['agent_messages'] == 2
+        assert analytics['user_messages'] == 1
+        assert analytics['moderator_messages'] == 1
+        assert analytics['total_tool_calls'] == 10
+        assert analytics['iteration_tool_calls'] == 2
+        assert analytics['tool_calls_by_id']['ddg'] == 8
+        assert analytics['tool_calls_by_id']['wolfram'] == 2
+        assert analytics['messages_per_iteration'] == 0.8  # 4/5
+        assert analytics['tool_calls_per_iteration'] == 2.0  # 10/5
+        assert 'created_at' in analytics
+        assert 'last_activity' in analytics
+        assert 'duration_seconds' in analytics
+    
+    @patch('agentrylab.telegram.adapter.init')
+    def test_export_conversation_data_json(self, mock_init):
+        """Test exporting conversation data as JSON."""
+        mock_lab = Mock()
+        mock_lab.state.iter = 2
+        mock_lab.state.history = [{"role": "agent", "content": "Hello"}]
+        mock_lab.state._tool_calls_run_total = 5
+        mock_lab.state._tool_calls_iteration = 1
+        mock_lab.state._tool_calls_run_by_id = {}
+        mock_lab.state._tool_calls_iter_by_id = {}
+        mock_lab.state.get_tool_budgets.return_value = {}
+        
+        mock_cfg = Mock()
+        mock_cfg.providers = []
+        mock_cfg.tools = []
+        mock_lab.cfg = mock_cfg
+        mock_init.return_value = mock_lab
+        
+        conversation_id = self.adapter.start_conversation(
+            preset_id="debates",
+            topic="Test topic",
+            user_id="user123"
+        )
+        
+        # Export as JSON
+        json_data = self.adapter.export_conversation_data(conversation_id, "json")
+        
+        assert isinstance(json_data, str)
+        assert conversation_id in json_data
+        assert "debates" in json_data
+        assert "Test topic" in json_data
+        assert "user123" in json_data
+    
+    @patch('agentrylab.telegram.adapter.init')
+    def test_export_conversation_data_yaml(self, mock_init):
+        """Test exporting conversation data as YAML."""
+        mock_lab = Mock()
+        mock_lab.state.iter = 1
+        mock_lab.state.history = []
+        mock_lab.state._tool_calls_run_total = 0
+        mock_lab.state._tool_calls_iteration = 0
+        mock_lab.state._tool_calls_run_by_id = {}
+        mock_lab.state._tool_calls_iter_by_id = {}
+        mock_lab.state.get_tool_budgets.return_value = {}
+        
+        mock_cfg = Mock()
+        mock_cfg.providers = []
+        mock_cfg.tools = []
+        mock_lab.cfg = mock_cfg
+        mock_init.return_value = mock_lab
+        
+        conversation_id = self.adapter.start_conversation(
+            preset_id="debates",
+            topic="Test topic",
+            user_id="user123"
+        )
+        
+        # Export as YAML
+        yaml_data = self.adapter.export_conversation_data(conversation_id, "yaml")
+        
+        assert isinstance(yaml_data, str)
+        assert conversation_id in yaml_data
+        assert "debates" in yaml_data
+    
+    @patch('agentrylab.telegram.adapter.init')
+    def test_export_conversation_data_csv(self, mock_init):
+        """Test exporting conversation data as CSV."""
+        mock_lab = Mock()
+        mock_lab.state.iter = 1
+        mock_lab.state.history = [
+            {"role": "agent", "content": "Hello", "timestamp": "2023-01-01"},
+            {"role": "user", "content": "Hi", "timestamp": "2023-01-01"},
+        ]
+        mock_lab.state._tool_calls_run_total = 0
+        mock_lab.state._tool_calls_iteration = 0
+        mock_lab.state._tool_calls_run_by_id = {}
+        mock_lab.state._tool_calls_iter_by_id = {}
+        mock_lab.state.get_tool_budgets.return_value = {}
+        
+        mock_cfg = Mock()
+        mock_cfg.providers = []
+        mock_cfg.tools = []
+        mock_lab.cfg = mock_cfg
+        mock_init.return_value = mock_lab
+        
+        conversation_id = self.adapter.start_conversation(
+            preset_id="debates",
+            topic="Test topic",
+            user_id="user123"
+        )
+        
+        # Export as CSV
+        csv_data = self.adapter.export_conversation_data(conversation_id, "csv")
+        
+        assert isinstance(csv_data, str)
+        assert "role" in csv_data
+        assert "content" in csv_data
+        assert "Hello" in csv_data
+        assert "Hi" in csv_data
+    
+    @patch('agentrylab.telegram.adapter.init')
+    def test_export_conversation_data_invalid_format(self, mock_init):
+        """Test exporting with invalid format."""
+        mock_lab = Mock()
+        mock_init.return_value = mock_lab
+        
+        conversation_id = self.adapter.start_conversation(
+            preset_id="debates",
+            topic="Test topic",
+            user_id="user123"
+        )
+        
+        # Try to export with invalid format
+        with pytest.raises(ValueError, match="Unsupported format"):
+            self.adapter.export_conversation_data(conversation_id, "xml")
+    
+    @patch('agentrylab.telegram.adapter.init')
+    def test_get_conversation_summary_report(self, mock_init):
+        """Test getting conversation summary report."""
+        mock_lab = Mock()
+        mock_lab.state.iter = 3
+        mock_lab.state.history = [
+            {"role": "agent", "content": "Hello"},
+            {"role": "user", "content": "Hi"},
+            {"role": "agent", "content": "How are you?"},
+        ]
+        mock_lab.state._tool_calls_run_total = 5
+        mock_lab.state._tool_calls_iteration = 1
+        mock_lab.state._tool_calls_run_by_id = {"ddg": 5}
+        mock_lab.state._tool_calls_iter_by_id = {"ddg": 1}
+        mock_lab.state.get_tool_budgets.return_value = {}
+        mock_lab.state.stop_flag = False
+        mock_lab._active = True
+        
+        mock_cfg = Mock()
+        mock_cfg.providers = []
+        mock_cfg.tools = []
+        mock_lab.cfg = mock_cfg
+        mock_init.return_value = mock_lab
+        
+        conversation_id = self.adapter.start_conversation(
+            preset_id="debates",
+            topic="Test topic",
+            user_id="user123"
+        )
+        
+        # Get summary report
+        report = self.adapter.get_conversation_summary_report(conversation_id)
+        
+        assert isinstance(report, str)
+        assert "# Conversation Summary Report" in report
+        assert conversation_id in report
+        assert "debates" in report
+        assert "Test topic" in report
+        assert "user123" in report
+        assert "Current Iteration" in report
+        assert "3" in report
+        assert "Total Messages" in report
+        assert "Agent Messages" in report
+        assert "User Messages" in report
+        assert "Total Tool Calls" in report
+        assert "Health Score" in report
 
 
 @pytest.mark.asyncio
