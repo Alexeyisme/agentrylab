@@ -539,6 +539,156 @@ class TestTelegramAdapter:
         summary = self.adapter.get_conversation_summary(conversation_id)
         
         assert summary is None
+    
+    @patch('agentrylab.telegram.adapter.init')
+    def test_get_conversation_budgets(self, mock_init):
+        """Test getting conversation budgets."""
+        # Mock lab with budget method
+        mock_lab = Mock()
+        mock_lab.state.get_tool_budgets.return_value = {
+            "ddg": {"per_run_max": 10, "per_iteration_max": 2},
+            "wolfram": {"per_run_max": 5, "per_iteration_max": 1}
+        }
+        mock_init.return_value = mock_lab
+        
+        conversation_id = self.adapter.start_conversation(
+            preset_id="debates",
+            topic="Test topic",
+            user_id="user123"
+        )
+        
+        # Get budgets
+        budgets = self.adapter.get_conversation_budgets(conversation_id)
+        
+        assert "ddg" in budgets
+        assert "wolfram" in budgets
+        assert budgets["ddg"]["per_run_max"] == 10
+        assert budgets["wolfram"]["per_iteration_max"] == 1
+    
+    @patch('agentrylab.telegram.adapter.init')
+    def test_get_conversation_budgets_no_method(self, mock_init):
+        """Test getting budgets when lab state has no get_tool_budgets method."""
+        # Mock lab without budget method
+        mock_lab = Mock()
+        del mock_lab.state.get_tool_budgets  # Remove the method
+        mock_init.return_value = mock_lab
+        
+        conversation_id = self.adapter.start_conversation(
+            preset_id="debates",
+            topic="Test topic",
+            user_id="user123"
+        )
+        
+        # Get budgets should return empty dict
+        budgets = self.adapter.get_conversation_budgets(conversation_id)
+        assert budgets == {}
+    
+    @patch('agentrylab.telegram.adapter.init')
+    def test_get_tool_usage_stats(self, mock_init):
+        """Test getting tool usage statistics."""
+        # Mock lab with usage stats
+        mock_lab = Mock()
+        mock_lab.state._tool_calls_run_total = 15
+        mock_lab.state._tool_calls_iteration = 3
+        mock_lab.state._tool_calls_run_by_id = {"ddg": 10, "wolfram": 5}
+        mock_lab.state._tool_calls_iter_by_id = {"ddg": 2, "wolfram": 1}
+        mock_init.return_value = mock_lab
+        
+        conversation_id = self.adapter.start_conversation(
+            preset_id="debates",
+            topic="Test topic",
+            user_id="user123"
+        )
+        
+        # Get usage stats
+        stats = self.adapter.get_tool_usage_stats(conversation_id)
+        
+        assert stats['total_tool_calls'] == 15
+        assert stats['iteration_tool_calls'] == 3
+        assert stats['tool_calls_by_id']['ddg'] == 10
+        assert stats['tool_calls_by_id']['wolfram'] == 5
+        assert stats['iteration_tool_calls_by_id']['ddg'] == 2
+        assert stats['iteration_tool_calls_by_id']['wolfram'] == 1
+    
+    @patch('agentrylab.telegram.adapter.init')
+    def test_can_call_tool(self, mock_init):
+        """Test checking if a tool can be called."""
+        # Mock lab with can_call_tool method
+        mock_lab = Mock()
+        mock_lab.state.can_call_tool.return_value = (True, "Tool available")
+        mock_init.return_value = mock_lab
+        
+        conversation_id = self.adapter.start_conversation(
+            preset_id="debates",
+            topic="Test topic",
+            user_id="user123"
+        )
+        
+        # Check if tool can be called
+        can_call, reason = self.adapter.can_call_tool(conversation_id, "ddg")
+        
+        assert can_call is True
+        assert reason == "Tool available"
+        mock_lab.state.can_call_tool.assert_called_once_with("ddg")
+    
+    @patch('agentrylab.telegram.adapter.init')
+    def test_can_call_tool_no_method(self, mock_init):
+        """Test checking tool when lab state has no can_call_tool method."""
+        # Mock lab without can_call_tool method
+        mock_lab = Mock()
+        del mock_lab.state.can_call_tool  # Remove the method
+        mock_init.return_value = mock_lab
+        
+        conversation_id = self.adapter.start_conversation(
+            preset_id="debates",
+            topic="Test topic",
+            user_id="user123"
+        )
+        
+        # Check if tool can be called should return True
+        can_call, reason = self.adapter.can_call_tool(conversation_id, "ddg")
+        
+        assert can_call is True
+        assert reason == "No budget restrictions"
+    
+    @patch('agentrylab.telegram.adapter.init')
+    def test_get_budget_status(self, mock_init):
+        """Test getting comprehensive budget status."""
+        # Mock lab with all budget methods
+        mock_lab = Mock()
+        mock_lab.state.iter = 5
+        mock_lab.state.get_tool_budgets.return_value = {"ddg": {"per_run_max": 10}}
+        mock_lab.state._tool_calls_run_total = 5
+        mock_lab.state._tool_calls_iteration = 1
+        mock_lab.state._tool_calls_run_by_id = {"ddg": 5}
+        mock_lab.state._tool_calls_iter_by_id = {"ddg": 1}
+        mock_lab.state.can_call_tool.return_value = (True, "Available")
+        
+        # Mock config with tools
+        mock_cfg = Mock()
+        mock_tool = Mock()
+        mock_tool.id = "ddg"
+        mock_cfg.tools = [mock_tool]
+        mock_lab.cfg = mock_cfg
+        
+        mock_init.return_value = mock_lab
+        
+        conversation_id = self.adapter.start_conversation(
+            preset_id="debates",
+            topic="Test topic",
+            user_id="user123"
+        )
+        
+        # Get budget status
+        status = self.adapter.get_budget_status(conversation_id)
+        
+        assert status['conversation_id'] == conversation_id
+        assert status['iteration'] == 5
+        assert 'budgets' in status
+        assert 'usage_stats' in status
+        assert 'tool_status' in status
+        assert 'ddg' in status['tool_status']
+        assert status['tool_status']['ddg']['can_call'] is True
 
 
 @pytest.mark.asyncio

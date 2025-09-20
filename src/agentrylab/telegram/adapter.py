@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import uuid
-from typing import Any, AsyncIterator, Dict, List, Optional
+from typing import Any, AsyncIterator, Dict, List, Optional, Tuple
 
 from agentrylab import init
 from agentrylab.lab import Lab
@@ -388,6 +388,126 @@ class TelegramAdapter:
         
         # Get running summary from lab state
         return getattr(lab.state, 'running_summary', None)
+    
+    def get_conversation_budgets(self, conversation_id: str) -> Dict[str, Any]:
+        """Get tool budgets for a conversation.
+        
+        Args:
+            conversation_id: ID of the conversation
+            
+        Returns:
+            Dictionary with budget information
+            
+        Raises:
+            ConversationNotFoundError: If conversation is not found
+        """
+        if conversation_id not in self._conversations:
+            raise ConversationNotFoundError(f"Conversation {conversation_id} not found")
+            
+        state = self._conversations[conversation_id]
+        lab = state.lab_instance
+        
+        # Get tool budgets from lab state
+        if hasattr(lab.state, 'get_tool_budgets'):
+            return lab.state.get_tool_budgets()
+        else:
+            return {}
+    
+    def get_tool_usage_stats(self, conversation_id: str) -> Dict[str, Any]:
+        """Get tool usage statistics for a conversation.
+        
+        Args:
+            conversation_id: ID of the conversation
+            
+        Returns:
+            Dictionary with tool usage statistics
+            
+        Raises:
+            ConversationNotFoundError: If conversation is not found
+        """
+        if conversation_id not in self._conversations:
+            raise ConversationNotFoundError(f"Conversation {conversation_id} not found")
+            
+        state = self._conversations[conversation_id]
+        lab = state.lab_instance
+        
+        # Get tool usage stats from lab state
+        stats = {}
+        if hasattr(lab.state, '_tool_calls_run_total'):
+            stats['total_tool_calls'] = lab.state._tool_calls_run_total
+        if hasattr(lab.state, '_tool_calls_iteration'):
+            stats['iteration_tool_calls'] = lab.state._tool_calls_iteration
+        if hasattr(lab.state, '_tool_calls_run_by_id'):
+            stats['tool_calls_by_id'] = dict(lab.state._tool_calls_run_by_id)
+        if hasattr(lab.state, '_tool_calls_iter_by_id'):
+            stats['iteration_tool_calls_by_id'] = dict(lab.state._tool_calls_iter_by_id)
+        
+        return stats
+    
+    def can_call_tool(self, conversation_id: str, tool_id: str) -> Tuple[bool, str]:
+        """Check if a tool can be called for a conversation.
+        
+        Args:
+            conversation_id: ID of the conversation
+            tool_id: ID of the tool to check
+            
+        Returns:
+            Tuple of (can_call, reason)
+            
+        Raises:
+            ConversationNotFoundError: If conversation is not found
+        """
+        if conversation_id not in self._conversations:
+            raise ConversationNotFoundError(f"Conversation {conversation_id} not found")
+            
+        state = self._conversations[conversation_id]
+        lab = state.lab_instance
+        
+        # Check if tool can be called
+        if hasattr(lab.state, 'can_call_tool'):
+            return lab.state.can_call_tool(tool_id)
+        else:
+            return True, "No budget restrictions"
+    
+    def get_budget_status(self, conversation_id: str) -> Dict[str, Any]:
+        """Get comprehensive budget status for a conversation.
+        
+        Args:
+            conversation_id: ID of the conversation
+            
+        Returns:
+            Dictionary with comprehensive budget status
+            
+        Raises:
+            ConversationNotFoundError: If conversation is not found
+        """
+        if conversation_id not in self._conversations:
+            raise ConversationNotFoundError(f"Conversation {conversation_id} not found")
+            
+        state = self._conversations[conversation_id]
+        lab = state.lab_instance
+        
+        status = {
+            'conversation_id': conversation_id,
+            'iteration': getattr(lab.state, 'iter', 0),
+            'budgets': self.get_conversation_budgets(conversation_id),
+            'usage_stats': self.get_tool_usage_stats(conversation_id),
+        }
+        
+        # Add tool-specific status
+        tool_status = {}
+        if hasattr(lab.cfg, 'tools') and lab.cfg.tools:
+            for tool in lab.cfg.tools:
+                tool_id = tool.id
+                can_call, reason = self.can_call_tool(conversation_id, tool_id)
+                tool_status[tool_id] = {
+                    'can_call': can_call,
+                    'reason': reason,
+                    'budget': self.get_conversation_budgets(conversation_id).get(tool_id, {}),
+                }
+        
+        status['tool_status'] = tool_status
+        return status
     
     async def _run_conversation(self, conversation_id: str) -> None:
         """Run a conversation in the background.
