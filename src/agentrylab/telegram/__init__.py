@@ -4,6 +4,7 @@ This module provides a clean API adapter for integrating AgentryLab with
 external interfaces like Telegram bots, web applications, and other chat platforms.
 """
 
+from .adapter import TelegramAdapter
 from .models import (
     ConversationState,
     ConversationEvent,
@@ -18,6 +19,7 @@ from .exceptions import (
 )
 
 __all__ = [
+    "TelegramAdapter",
     "ConversationState",
     "ConversationEvent", 
     "ConversationStatus",
