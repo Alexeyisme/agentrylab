@@ -414,6 +414,131 @@ class TestTelegramAdapter:
         
         result = self.adapter.can_resume_conversation("test-123")
         assert result is False
+    
+    @patch('agentrylab.telegram.adapter.init')
+    def test_get_conversation_history(self, mock_init):
+        """Test getting conversation history."""
+        # Mock lab with history
+        mock_lab = Mock()
+        mock_lab.state.history = [
+            {"agent_id": "pro", "role": "agent", "content": "Hello"},
+            {"agent_id": "con", "role": "agent", "content": "Hi there"},
+            {"agent_id": "user", "role": "user", "content": "What's up?"}
+        ]
+        mock_init.return_value = mock_lab
+        
+        conversation_id = self.adapter.start_conversation(
+            preset_id="debates",
+            topic="Test topic",
+            user_id="user123"
+        )
+        
+        # Get history
+        history = self.adapter.get_conversation_history(conversation_id, limit=2)
+        
+        assert len(history) == 2
+        assert history[0]["content"] == "Hi there"
+        assert history[1]["content"] == "What's up?"
+    
+    @patch('agentrylab.telegram.adapter.init')
+    def test_get_conversation_history_not_found(self, mock_init):
+        """Test getting history for non-existent conversation."""
+        mock_lab = Mock()
+        mock_init.return_value = mock_lab
+        
+        with pytest.raises(Exception):  # Should raise ConversationNotFoundError
+            self.adapter.get_conversation_history("non-existent")
+    
+    @patch('agentrylab.telegram.adapter.init')
+    @patch('agentrylab.persistence.store.Store')
+    def test_get_conversation_transcript(self, mock_store_class, mock_init):
+        """Test getting conversation transcript."""
+        # Mock lab
+        mock_lab = Mock()
+        mock_init.return_value = mock_lab
+        
+        # Mock store
+        mock_store = Mock()
+        mock_store_class.return_value = mock_store
+        mock_store.read_transcript.return_value = [
+            {"t": 1234567890, "iter": 0, "agent_id": "pro", "role": "agent", "content": "Hello"},
+            {"t": 1234567891, "iter": 1, "agent_id": "con", "role": "agent", "content": "Hi"}
+        ]
+        
+        conversation_id = self.adapter.start_conversation(
+            preset_id="debates",
+            topic="Test topic",
+            user_id="user123"
+        )
+        
+        # Get transcript
+        transcript = self.adapter.get_conversation_transcript(conversation_id, limit=10)
+        
+        assert len(transcript) == 2
+        assert transcript[0]["content"] == "Hello"
+        assert transcript[1]["content"] == "Hi"
+        mock_store.read_transcript.assert_called_once_with(conversation_id, limit=10)
+    
+    @patch('agentrylab.telegram.adapter.init')
+    @patch('agentrylab.persistence.store.Store')
+    def test_get_conversation_transcript_error(self, mock_store_class, mock_init):
+        """Test getting transcript when store fails."""
+        # Mock lab
+        mock_lab = Mock()
+        mock_init.return_value = mock_lab
+        
+        # Mock store with error
+        mock_store = Mock()
+        mock_store_class.return_value = mock_store
+        mock_store.read_transcript.side_effect = Exception("Store error")
+        
+        conversation_id = self.adapter.start_conversation(
+            preset_id="debates",
+            topic="Test topic",
+            user_id="user123"
+        )
+        
+        # Get transcript should return empty list on error
+        transcript = self.adapter.get_conversation_transcript(conversation_id)
+        assert transcript == []
+    
+    @patch('agentrylab.telegram.adapter.init')
+    def test_get_conversation_summary(self, mock_init):
+        """Test getting conversation summary."""
+        # Mock lab with summary
+        mock_lab = Mock()
+        mock_lab.state.running_summary = "This is a test summary"
+        mock_init.return_value = mock_lab
+        
+        conversation_id = self.adapter.start_conversation(
+            preset_id="debates",
+            topic="Test topic",
+            user_id="user123"
+        )
+        
+        # Get summary
+        summary = self.adapter.get_conversation_summary(conversation_id)
+        
+        assert summary == "This is a test summary"
+    
+    @patch('agentrylab.telegram.adapter.init')
+    def test_get_conversation_summary_none(self, mock_init):
+        """Test getting summary when none exists."""
+        # Mock lab without summary
+        mock_lab = Mock()
+        mock_lab.state.running_summary = None
+        mock_init.return_value = mock_lab
+        
+        conversation_id = self.adapter.start_conversation(
+            preset_id="debates",
+            topic="Test topic",
+            user_id="user123"
+        )
+        
+        # Get summary
+        summary = self.adapter.get_conversation_summary(conversation_id)
+        
+        assert summary is None
 
 
 @pytest.mark.asyncio

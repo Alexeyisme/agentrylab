@@ -319,6 +319,76 @@ class TelegramAdapter:
             if state.user_id == user_id
         ]
     
+    def get_conversation_history(self, conversation_id: str, limit: int = 50) -> List[Dict[str, Any]]:
+        """Get conversation history from the lab instance.
+        
+        Args:
+            conversation_id: ID of the conversation
+            limit: Maximum number of history entries to return
+            
+        Returns:
+            List of conversation history entries
+            
+        Raises:
+            ConversationNotFoundError: If conversation is not found
+        """
+        if conversation_id not in self._conversations:
+            raise ConversationNotFoundError(f"Conversation {conversation_id} not found")
+            
+        state = self._conversations[conversation_id]
+        lab = state.lab_instance
+        
+        # Get history from lab state
+        history = getattr(lab.state, 'history', [])
+        return history[-limit:] if limit > 0 else history
+    
+    def get_conversation_transcript(self, conversation_id: str, limit: int = 100) -> List[Dict[str, Any]]:
+        """Get conversation transcript from persistence store.
+        
+        Args:
+            conversation_id: ID of the conversation
+            limit: Maximum number of transcript entries to return
+            
+        Returns:
+            List of transcript entries
+            
+        Raises:
+            ConversationNotFoundError: If conversation is not found
+        """
+        if conversation_id not in self._conversations:
+            raise ConversationNotFoundError(f"Conversation {conversation_id} not found")
+            
+        try:
+            # Get transcript from store
+            from agentrylab.persistence.store import Store
+            store = Store()
+            transcript = store.read_transcript(conversation_id, limit=limit)
+            return transcript
+        except Exception as e:
+            logger.error(f"Failed to read transcript for conversation {conversation_id}: {e}")
+            return []
+    
+    def get_conversation_summary(self, conversation_id: str) -> Optional[str]:
+        """Get conversation summary if available.
+        
+        Args:
+            conversation_id: ID of the conversation
+            
+        Returns:
+            Conversation summary or None if not available
+            
+        Raises:
+            ConversationNotFoundError: If conversation is not found
+        """
+        if conversation_id not in self._conversations:
+            raise ConversationNotFoundError(f"Conversation {conversation_id} not found")
+            
+        state = self._conversations[conversation_id]
+        lab = state.lab_instance
+        
+        # Get running summary from lab state
+        return getattr(lab.state, 'running_summary', None)
+    
     async def _run_conversation(self, conversation_id: str) -> None:
         """Run a conversation in the background.
         
