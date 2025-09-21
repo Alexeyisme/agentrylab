@@ -50,6 +50,7 @@ Issues = "https://github.com/Alexeyisme/agentrylab/issues"
 [project.optional-dependencies]
 dev = [
   "pytest>=8.3.2",
+  "pytest-asyncio>=0.24.0",
   "pytest-cov>=5.0.0",
   "mypy>=1.11.1",
   "ruff>=0.6.9",
@@ -76,6 +77,7 @@ include = ["agentrylab*"]
 minversion = "8.0"
 addopts = "-q"
 testpaths = ["tests"]
+asyncio_mode = "auto"
 
 [tool.mypy]
 python_version = "3.11"
