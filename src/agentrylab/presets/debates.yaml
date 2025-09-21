@@ -1,8 +1,16 @@
 # === Spec metadata ===
+# Debate Club Preset - Oxford-style debate with comprehensive final summaries
+# 
+# KEY FEATURES:
+# - Multi-agent debate with Pro, Con, Moderator, and Summarizer
+# - Evidence-first policy requiring web search before factual claims
+# - Comprehensive final summary generated after debate completion
+# - Final summary includes: outcome, key points, evidence URLs, open questions, next steps
+#
 version: "1.0.0"                      # preset schema/version (free‑form; useful for tooling)
 id: debateclub                         # unique room/config identifier (used in filenames/db)
 name: Debate Club                      # human‑friendly name (shown in UIs/logs)
-description: Oxford-style debate with evidence-first policy  # short description of the scenario
+description: Oxford-style debate with evidence-first policy and comprehensive final summaries  # short description of the scenario
 objective: "Is ananas great on pizza?"  # optional seed topic (pinned when enabled)
 
 # === Global runtime and policy ===
@@ -214,8 +222,9 @@ agents:
   - id: summarizer
     role: summarizer                   # blocking only at run end if run_on_last=true
     display_name: "Summarizer"
-    description: Debate Summarizer
+    description: Debate Summarizer - Generates comprehensive final summary after debate completion
     provider: openai_gpt4o_mini
+    run_on_last: true                  # CRITICAL: Ensures summarizer runs after all rounds complete to generate final structured summary
     context:
       max_tokens: 800                  # prefer token cap for summarizer
       pin_objective: true
