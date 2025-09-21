@@ -395,11 +395,17 @@ class TelegramAdapter:
     def get_conversation_summary(self, conversation_id: str) -> Optional[str]:
         """Get conversation summary if available.
         
+        Note: This method returns the running summary from the lab state.
+        For presets with run_on_last=true (like debates), the final comprehensive
+        summary is stored in the transcript with role='summarizer' and should be
+        accessed via get_conversation_transcript() or by reading the transcript
+        directly from the lab store.
+        
         Args:
             conversation_id: ID of the conversation
             
         Returns:
-            Conversation summary or None if not available
+            Running conversation summary or None if not available
             
         Raises:
             ConversationNotFoundError: If conversation is not found
@@ -412,6 +418,41 @@ class TelegramAdapter:
         
         # Get running summary from lab state
         return getattr(lab.state, 'running_summary', None)
+    
+    def get_final_summary(self, conversation_id: str) -> Optional[str]:
+        """Get the final comprehensive summary from the summarizer agent.
+        
+        This method is specifically designed for presets with run_on_last=true
+        (like debates) where a summarizer agent generates a comprehensive final
+        summary after the conversation completes.
+        
+        Args:
+            conversation_id: ID of the conversation
+            
+        Returns:
+            Final summarizer output or None if not available
+            
+        Raises:
+            ConversationNotFoundError: If conversation is not found
+        """
+        if conversation_id not in self._conversations:
+            raise ConversationNotFoundError(f"Conversation {conversation_id} not found")
+            
+        try:
+            state = self._conversations[conversation_id]
+            lab = state.lab_instance
+            transcript = lab.store.read_transcript(lab.state.thread_id)
+            
+            # Find the final summarizer message (last one with role='summarizer')
+            for entry in reversed(transcript):
+                if entry.get('role') == 'summarizer':
+                    return entry.get('content', '')
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"Failed to get final summary for conversation {conversation_id}: {e}")
+            return None
     
     def get_conversation_budgets(self, conversation_id: str) -> Dict[str, Any]:
         """Get tool budgets for a conversation.
@@ -1193,7 +1234,7 @@ The system health is {health['health_status']} with a score of {health['health_s
             max_rounds = state.metadata.get('max_rounds', 10)
             
             # Run the lab with streaming
-            async for event in lab.stream(rounds=max_rounds):
+            for event in lab.stream(rounds=max_rounds):
                 # Check if conversation is still active
                 if state.status != ConversationStatus.ACTIVE:
                     break
