@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.6] - 2025-01-27
+### 🚀 Telegram Bot Integration
+- **Added TelegramAdapter**: New telegram module for Telegram bot integration
+- **Enhanced multi-agent support**: Better integration with external bot frameworks
+- **Improved API compatibility**: Enhanced support for real-time conversation management
+
 ## [0.1.4] - 2025-01-27
 ### 🚀 Performance & Reliability Improvements
 - **Fixed empty response issues**: Switched debates and standup_club presets from llama3 to gpt-4o-mini for all agents
