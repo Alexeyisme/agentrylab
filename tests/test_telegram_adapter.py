@@ -1505,10 +1505,9 @@ class TestTelegramAdapterAsync:
     @patch('agentrylab.telegram.adapter.init')
     async def test_stream_events(self, mock_init):
         """Test streaming events from conversation."""
-        # Mock lab with async stream
+        # Mock lab with synchronous stream (as it actually is)
         mock_lab = Mock()
-        mock_lab.stream = AsyncMock()
-        async def mock_stream():
+        def mock_stream():
             yield {
                 "content": "Hello from agent",
                 "iter": 0,

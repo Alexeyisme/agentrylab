@@ -218,7 +218,9 @@ class TelegramAdapter:
         """
         if conversation_id not in self._running_tasks:
             try:
-                task = asyncio.create_task(self._run_conversation(conversation_id))
+                # Check if we're in an async context
+                loop = asyncio.get_running_loop()
+                task = loop.create_task(self._run_conversation(conversation_id))
                 self._running_tasks[conversation_id] = task
             except RuntimeError:
                 # No event loop running, task will be started later
