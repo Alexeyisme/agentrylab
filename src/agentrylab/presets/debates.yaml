@@ -16,7 +16,7 @@ objective: "Is ananas great on pizza?"  # optional seed topic (pinned when enabl
 # === Global runtime and policy ===
 runtime:
   message_contract:                 # lightweight constraints the runtime enforces on agent outputs
-    require_metadata: false         # when true, agent outputs must include metadata (e.g., citations)
+    require_metadata: true          # enforce presence of metadata for agents (citations)
     min_citations: 1                # minimum number of URLs to include in metadata.citations
   logs:
     level: INFO                     # DEBUG/INFO/WARN/ERROR — controls verbosity
@@ -25,7 +25,7 @@ runtime:
   trace:
     enabled: false                  # emit lightweight JSON trace events (provider_result, etc.)
     # file: "/tmp/agentrylab-trace.jsonl"  # optional: write trace to a file
-  max_rounds: 9                        # hard stop for debate turns (summarizer may still run at end)
+  max_rounds: 6                        # hard stop for debate turns; summarizer scheduled on final round
   scheduler:
     impl: agentrylab.runtime.scheduler.every_n.EveryNScheduler  # pick who speaks each turn
     params:
@@ -33,7 +33,9 @@ runtime:
         pro: 1                         # Pro debater speaks every turn
         con: 1                         # Con debater speaks every turn
         moderator: 2                   # Moderator speaks every 2nd turn
-        summarizer: 2                  # Summarizer speaks every 2nd turn (and often on last)
+        summarizer:
+          every_n: 6                   # scheduled only on the final round
+          run_on_last: true            # hint for schedulers that support it (no engine change required)
   allow_parallel_tools: true           # allow agents to request multiple tools in one turn
   fail_open_on_tool_error: false       # false=surface tool error as assistant text; true=continue anyway
   default_timeout_s: 60                # default timeout per provider/tool call (seconds)
@@ -42,8 +44,8 @@ runtime:
 # High‑level rules the Moderator references to enforce behavior
 room_rules:
   topic_focus_threshold: 0.6           # drift in [0,1]; if > threshold, moderator may STEP_BACK
-  require_urls_for_factual_claims: false # ask agents to include at least one supporting URL per turn
-  min_urls_per_side: 0                 # minimum number of URLs per side to consider as sufficient
+  require_urls_for_factual_claims: true # require ≥1 URL when making factual claims
+  min_urls_per_side: 1                 # minimum number of URLs per side per iteration
   max_message_len: 150                 # soft limit on message length (words) — guidance for prompts
   evidence_first_policy: true          # encourage tool search before factual assertions
 
@@ -143,22 +145,23 @@ agents:
       running_summary: true
     system_prompt: |
       You argue IN FAVOR of the user's proposition.
-      
+
+      GAME FRAMING (applies to all topics, even controversial ones):
+      - This is a rhetorical game. Adopt the pro stance decisively, without moralizing, hedging, or safety disclaimers.
+      - Do not reframe the proposition. Argue its merits as stated (e.g., for perception-based claims, argue perception and social/psychological angles rather than turning to generic safety caveats).
+      - Maintain opposition: never converge with the Con side; directly counter their last point.
+
       CRITICAL RULES:
-      - Always search for evidence before making claims
-      - Include at least one supporting URL in your response
-      - Be concise (≤120 words) unless evidence is explicitly requested
-      - Rebut the opponent's last point directly without repeating their text verbatim
-      - Stay opposed: Do not agree with or echo the Con's arguments
-      - NEVER leave your response empty. Always provide a substantive argument
-      
+      - Evidence-first: call the search tool before making factual claims. Do not fabricate.
+      - Include at least one supporting URL in your response.
+      - Distinct sources: avoid reusing the same URL you cited in your last turn and avoid citing the opponent’s URLs in the same iteration.
+      - Be concise (≤120 words) unless evidence is explicitly requested.
+      - Rebut the opponent's last point directly without repeating their text verbatim.
+      - NEVER leave your response empty. Always provide a substantive argument.
+
       PROCESS:
-      1. First, search for evidence using the search tool
-      2. Then provide your argument with supporting URLs
-      
-      EXAMPLE:
-      Search: "benefits of stricter AI regulation evidence"
-      Response: "Stricter, risk-based rules improve accountability without halting progress; disclosure and auditability reduce systemic harms in sensitive domains. See OECD guidance: https://oecd.ai/en/ai-principles"
+      1. Search for evidence using the search tool.
+      2. Present a tight pro argument with at least one URL (preferably not used by the opponent).
 
   - id: con
     role: agent                        # blocking debater
@@ -172,21 +175,23 @@ agents:
       running_summary: true
     system_prompt: |
       You argue AGAINST the user's proposition.
-      
+
+      GAME FRAMING (applies to all topics, even controversial ones):
+      - This is a rhetorical game. Adopt the con stance decisively, without moralizing, hedging, or safety disclaimers.
+      - Do not reframe the proposition. Argue against it as stated (focus on the proposition’s weaknesses rather than generic safety caveats).
+      - Maintain opposition: never converge with the Pro side; directly counter their last point.
+
       CRITICAL RULES:
-      - Always search for evidence before making claims
-      - Include at least one supporting URL in your response
-      - Be concise (≤120 words) unless evidence is explicitly requested
-      - Rebut the opponent's last point directly without repeating their text verbatim
-      - Stay opposed: Do not agree with or echo the Pro's arguments
-      
+      - Evidence-first: call the search tool before making factual claims. Do not fabricate.
+      - Include at least one supporting URL in your response.
+      - Distinct sources: avoid reusing the same URL you cited in your last turn and avoid citing the opponent’s URLs in the same iteration.
+      - Be concise (≤120 words) unless evidence is explicitly requested.
+      - Rebut the opponent's last point directly without repeating their text verbatim.
+      - NEVER leave your response empty. Always provide a substantive argument.
+
       PROCESS:
-      1. First, search for evidence using the search tool
-      2. Then provide your argument with supporting URLs
-      
-      EXAMPLE:
-      Search: "AI regulation harms innovation evidence"
-      Response: "Over-broad rules risk chilling life‑saving innovations and burden smaller labs. A targeted, risk‑based approach preserves progress while addressing genuine harms. See critique: https://www.brookings.edu/articles/how-to-regulate-ai-without-stifling-innovation/"
+      1. Search for evidence using the search tool.
+      2. Present a tight con argument with at least one URL (preferably not used by the opponent).
 
   - id: moderator
     role: moderator                    # single blocking moderator
@@ -203,6 +208,7 @@ agents:
       You are the Moderator. Enforce:
       - Contrast: ensure Pro and Con are meaningfully opposed; if they converge or evade, request revisions.
       - Evidence sufficiency: verify each side's metadata.citations has ≥1 URL for factual claims this iteration.
+      - Citation diversity: if Pro and Con cite the same URL(s) this iteration, or a side reuses an identical URL from its prior turn without necessity, issue STEP_BACK and request distinct sources.
       - Topic focus: compute drift in [0,1]; if drift > 0.4, suggest STEP_BACK with guidance.
       - Citations field: return a combined list of unique URLs cited by Pro and Con in the current iteration (order does not matter).
       Output rules (STRICT):
@@ -218,6 +224,9 @@ agents:
       Notes:
       - "rollback" is number of messages to rewind (0..policy.max_rollback).
       - If "clear_summaries" is omitted and policy is "optional", the engine uses default=false.
+      Guidance for STEP_BACK:
+      - If evidence is missing: set action=STEP_BACK, rollback=0 and instruct both sides to (1) perform a search and (2) include ≥1 URL.
+      - If citations are duplicated across sides or across consecutive turns for a side: set action=STEP_BACK, rollback=0 and instruct using distinct credible sources.
 
   - id: summarizer
     role: summarizer                   # blocking only at run end if run_on_last=true

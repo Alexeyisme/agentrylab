@@ -1,5 +1,22 @@
 #!/usr/bin/env python3
 """
+Debates Demo - Direct AgentryLab Testing Tool
+
+This script provides a clean way to test AgentryLab's debates preset
+without the complexity of the Telegram bot integration. Useful for:
+
+- Debugging core engine issues
+- Testing conversation quality  
+- Validating fixes and changes
+- Performance benchmarking
+- Feature development testing
+
+Usage: python3 run_debates_demo.py
+
+The script will prompt you for a debate topic and run a full conversation
+using the AgentryLab core engine with the debates preset.
+"""
+"""
 Debates Demo - Run the debates preset using the Telegram API
 
 This demo showcases the complete debate functionality including:
@@ -240,3 +257,4 @@ if __name__ == "__main__":
         print(f"\n❌ Demo failed: {e}")
         import traceback
         traceback.print_exc()
+
