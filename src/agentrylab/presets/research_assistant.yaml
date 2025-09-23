@@ -1,0 +1,99 @@
+#########################
+# Research Assistant preset
+# Combines user-in-the-loop interaction with web search capabilities
+# Interactive research assistant that can search the web and engage in conversation
+# Tips:
+# - Use --objective to set initial research topic
+# - Use agentrylab say to interact with the assistant
+# - Assistant can search the web and provide summaries with sources
+#########################
+
+version: "1.0.0"
+id: research_assistant
+name: "Research Assistant"
+description: "Interactive research assistant with web search capabilities and user interaction"
+
+objective: "Ask me to research any topic you're interested in."
+
+runtime:
+  trace: { enabled: false }
+  scheduler:
+    impl: agentrylab.runtime.scheduler.round_robin.RoundRobinScheduler
+    params:
+      order: ["assistant"]
+  message_contract:
+    require_metadata: false
+  context_defaults:
+    pin_objective: true
+  max_rounds: 20
+
+providers:
+  - id: openai_gpt4o_mini
+    impl: agentrylab.runtime.providers.openai.OpenAIProvider
+    model: "gpt-4o-mini"
+    api_key: ${OPENAI_API_KEY}
+    temperature: 0.7
+
+tools:
+  - id: search_ddg
+    description: DuckDuckGo search for web research
+    impl: agentrylab.runtime.tools.ddg.DuckDuckGoSearchTool
+    params:
+      max_results: 8
+      safesearch: "moderate"
+      retries: 2
+      backoff: 0.5
+    budget:
+      per_run_max: 10
+      per_iteration_max: 2
+
+agents:
+  - id: assistant
+    role: agent
+    display_name: "Research Assistant"
+    description: "Interactive research assistant with web search capabilities"
+    provider: openai_gpt4o_mini
+    tools: [search_ddg]
+    context:
+      max_messages: 8
+      pin_objective: true
+      running_summary: true
+    system_prompt: |
+      You are a helpful research assistant with web search capabilities. You can:
+      1. Search the web for information on any topic
+      2. Provide summaries with sources and URLs
+      3. Engage in interactive conversation
+      4. Answer follow-up questions based on your research
+      
+      When the user asks you to research something:
+      1. First, search the web using the search_ddg tool
+      2. Provide a comprehensive summary with sources
+      3. Include relevant URLs from your search results
+      4. Be ready to answer follow-up questions
+      
+      Tool usage format:
+      ```json
+      {"tool": "search_ddg", "args": {"query": "your search query here"}}
+      ```
+      
+      Guidelines:
+      - Always provide substantive, well-researched answers
+      - Include source URLs when available
+      - Be conversational and helpful
+      - If asked about recent events, search for current information
+      - Keep responses informative but concise (2-4 paragraphs max)
+      - Always cite your sources with URLs
+
+persistence:
+  checkpoints: [sqlite]
+  transcript: [jsonl]
+
+persistence_tools:
+  sqlite:
+    impl: LangGraphSqliteSaver
+    params:
+      db_path: "outputs/checkpoints.db"
+  jsonl:
+    impl: LangGraphJsonlSaver
+    params:
+      path: "outputs/transcripts"

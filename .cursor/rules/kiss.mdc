@@ -1,0 +1,5 @@
+---
+description: keep it simple and easily extendable
+globs: 
+alwaysApply: true
+---
