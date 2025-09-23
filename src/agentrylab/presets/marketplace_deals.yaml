@@ -46,6 +46,7 @@ providers:
   - id: openai_gpt4o_mini
     impl: agentrylab.runtime.providers.openai.OpenAIProvider
     model: "gpt-4o-mini"
+    api_key: ${OPENAI_API_KEY}
 
 # Tools - following existing agentrylab pattern
 tools:
