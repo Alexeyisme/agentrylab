@@ -112,7 +112,7 @@ for msg in lab.state.history:
 - [CLI Reference](src/agentrylab/docs/CLI.md) - All commands
 - [Configuration](src/agentrylab/docs/CONFIG.md) - YAML preset format
 - [Architecture](src/agentrylab/docs/ARCHITECTURE.md) - How it works
-- [Tools](src/agentrylab/docs/TOOLS.md) - Available integrations
+- [Persistence](src/agentrylab/docs/PERSISTENCE.md) - Data storage format
 
 ## 🤝 Contributing
 

@@ -50,7 +50,7 @@
 
 ## 🤝 Contributing
 
-We welcome contributions! See [CONTRIBUTING.md](../../CONTRIBUTING.md).
+We welcome contributions! See [CONTRIBUTING.md](../../../CONTRIBUTING.md).
 
 **Quick wins:**
 - New presets
