@@ -83,7 +83,8 @@ class TelegramAdapter:
         topic: str, 
         user_id: str,
         conversation_id: Optional[str] = None,
-        resume: bool = True
+        resume: bool = True,
+        user_params: Optional[Dict[str, Any]] = None,
     ) -> str:
         """Start a new conversation.
         
@@ -111,12 +112,65 @@ class TelegramAdapter:
             raise RuntimeError("Maximum concurrent conversations reached")
             
         try:
-            # Initialize the lab with the preset
+            # Attempt to initialize; if preset declares user_inputs and not satisfied,
+            # defer to collecting state. The init() will load YAML; we pass through
+            # user_params by formatting a minimal override when provided.
+            from pathlib import Path
+            import yaml as _yaml
+            preset_path = Path(preset_id)
+            raw = _yaml.safe_load(preset_path.read_text(encoding="utf-8")) if preset_path.exists() else {}
+            user_inputs = raw.get("user_inputs") if isinstance(raw, dict) else None
+
+            # Helper to substitute ${user_inputs.key}
+            def _subst(obj: Any, vals: Dict[str, Any]) -> Any:
+                if isinstance(obj, str):
+                    for k, v in vals.items():
+                        token = f"${{user_inputs.{k}}}"
+                        if token in obj:
+                            obj = obj.replace(token, str(v))
+                    return obj
+                if isinstance(obj, list):
+                    return [_subst(x, vals) for x in obj]
+                if isinstance(obj, dict):
+                    return {kk: _subst(vv, vals) for kk, vv in obj.items()}
+                return obj
+
+            collected: Dict[str, Any] = dict(user_params or {})
+            missing: List[str] = []
+            if isinstance(user_inputs, dict):
+                for k, spec in user_inputs.items():
+                    if k in collected:
+                        continue
+                    if (spec or {}).get("required", False) and (spec or {}).get("default") is None:
+                        missing.append(k)
+
+            if missing:
+                # Create conversation in COLLECTING state
+                state = ConversationState(
+                    conversation_id=conversation_id,
+                    preset_id=preset_id,
+                    topic=topic,
+                    user_id=user_id,
+                    status=ConversationStatus.COLLECTING,
+                    lab_instance=None,
+                    metadata={"user_inputs_missing": missing, "collected": collected},
+                )
+                self._conversations[conversation_id] = state
+                self._event_streams[conversation_id] = asyncio.Queue()
+                self._user_message_queues[conversation_id] = asyncio.Queue()
+                logger.info(
+                    f"Conversation {conversation_id} awaiting params: {', '.join(missing)}"
+                )
+                return conversation_id
+
+            # If nothing missing, substitute and init Lab
+            if isinstance(raw, dict) and collected:
+                raw = _subst(raw, collected)
             lab = init(
-                preset_id,
+                raw if isinstance(raw, dict) else preset_id,
                 experiment_id=conversation_id,
                 prompt=topic,
-                resume=resume
+                resume=resume,
             )
             
             # Create conversation state
@@ -144,6 +198,69 @@ class TelegramAdapter:
         except Exception as e:
             logger.error(f"Failed to start conversation {conversation_id}: {e}")
             raise InvalidPresetError(f"Failed to initialize preset {preset_id}: {e}")
+
+    def provide_user_param(self, conversation_id: str, key: str, value: Any) -> List[str]:
+        """Provide one user_input parameter for a COLLECTING conversation.
+
+        Returns the list of remaining missing keys after applying this value.
+        """
+        state = _validate_conversation_exists(self, conversation_id)
+        if state.status != ConversationStatus.COLLECTING:
+            return []
+        meta = state.metadata or {}
+        collected = meta.get("collected", {})
+        collected[key] = value
+        meta["collected"] = collected
+        missing = [k for k in (meta.get("user_inputs_missing") or []) if k != key]
+        meta["user_inputs_missing"] = missing
+        state.metadata = meta
+        return missing
+
+    def finalize_params_and_start(self, conversation_id: str) -> None:
+        """When all params are provided, initialize the Lab and switch to ACTIVE."""
+        state = _validate_conversation_exists(self, conversation_id)
+        if state.status != ConversationStatus.COLLECTING:
+            return
+        try:
+            import yaml as _yaml
+            from pathlib import Path
+            preset_path = Path(state.preset_id)
+            raw = _yaml.safe_load(preset_path.read_text(encoding="utf-8")) if preset_path.exists() else {}
+            collected = (state.metadata or {}).get("collected", {})
+
+            # Substitute
+            def _subst(obj: Any, vals: Dict[str, Any]) -> Any:
+                if isinstance(obj, str):
+                    for k, v in vals.items():
+                        token = f"${{user_inputs.{k}}}"
+                        if token in obj:
+                            obj = obj.replace(token, str(v))
+                    return obj
+                if isinstance(obj, list):
+                    return [_subst(x, vals) for x in obj]
+                if isinstance(obj, dict):
+                    return {kk: _subst(vv, vals) for kk, vv in obj.items()}
+                return obj
+
+            if isinstance(raw, dict) and collected:
+                raw = _subst(raw, collected)
+
+            lab = init(
+                raw if isinstance(raw, dict) else state.preset_id,
+                experiment_id=conversation_id,
+                prompt=state.topic,
+                resume=True,
+            )
+            state.lab_instance = lab
+            state.status = ConversationStatus.ACTIVE
+            # ensure queues exist
+            if conversation_id not in self._event_streams:
+                self._event_streams[conversation_id] = asyncio.Queue()
+            if conversation_id not in self._user_message_queues:
+                self._user_message_queues[conversation_id] = asyncio.Queue()
+        except Exception as e:
+            logger.error(f"Failed to finalize params for conversation {conversation_id}: {e}")
+            state.status = ConversationStatus.ERROR
     
     def get_conversation_state(self, conversation_id: str) -> ConversationState:
         """Get the state of a conversation.

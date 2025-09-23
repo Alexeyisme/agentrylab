@@ -83,7 +83,19 @@ agentrylab run research_assistant.yaml --thread-id demo --resume --max-iters 1
 ### Marketplace Deals
 ```bash
 agentrylab run marketplace_deals.yaml --objective "iPhone 15 Pro deals in NYC"
+
+# With structured inputs (user_inputs) non-interactively
+agentrylab run marketplace_deals.yaml \
+  --params '{"query":"MacBook Pro 14 M3","location":"Tel Aviv","min_price":5000,"max_price":12000}'
 ```
+
+### Telegram-style parameter collection (concept)
+- Presets may declare a `user_inputs` section. If required inputs are missing when starting a conversation via the Telegram adapter, the conversation enters `COLLECTING` status until inputs are provided.
+- Adapter helpers:
+  - `provide_user_param(conversation_id, key, value)`: supply a single input; returns remaining keys
+  - `finalize_params_and_start(conversation_id)`: substitute values, initialize the lab, transition to `ACTIVE`
+
+This enables progressive, chat-like forms for complex scenarios (e.g., location, radius, min/max price) while still supporting one-shot runs with `--params`.
 
 ## 🐍 Python API
 

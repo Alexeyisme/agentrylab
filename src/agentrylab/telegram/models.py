@@ -13,6 +13,7 @@ from agentrylab.lab import Lab
 
 class ConversationStatus(Enum):
     """Status of a conversation."""
+    COLLECTING = "collecting"  # collecting user_inputs before starting
     ACTIVE = "active"
     PAUSED = "paused"
     STOPPED = "stopped"

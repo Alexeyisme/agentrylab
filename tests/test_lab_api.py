@@ -17,7 +17,7 @@ def _preset_dict():
         "summarizer": {"id": "sum", "role": "summarizer", "provider": "p1"},
         "runtime": {
             "scheduler": {
-                "impl": "agentrylab.runtime.scheduler.round_robin.RoundRobinScheduler",
+                "impl": "agentrylab.runtime.schedulers.round_robin.RoundRobinScheduler",
                 "params": {"order": ["pro", "sum"]},
             }
         },

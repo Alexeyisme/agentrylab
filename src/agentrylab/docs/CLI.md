@@ -28,6 +28,8 @@ agentrylab reset <preset.yaml> <thread-id>
 | `--objective "text"` | Set topic on the fly |
 | `--no-resume` | Start fresh (ignore checkpoints) |
 | `--no-stream` | Quiet mode (no live updates) |
+| `--interactive` | Prompt for user messages when a `user` node exists |
+| `--params '{...}'` | Provide `user_inputs` as JSON (non-interactive) |
 
 ## 🎭 Examples
 
@@ -43,8 +45,8 @@ agentrylab run research_assistant.yaml --objective "quantum computing"
 agentrylab say research_assistant.yaml demo "What about quantum biology?"
 agentrylab run research_assistant.yaml --thread-id demo --resume --max-iters 1
 
-# Marketplace deals
-agentrylab run marketplace_deals.yaml --objective "MacBook Pro deals in NYC"
+# Marketplace deals (with user inputs)
+agentrylab run marketplace_deals.yaml --params '{"query": "MacBook Pro M3", "location": "NYC", "min_price": 1000, "max_price": 3000}'
 ```
 
 ## 🔑 Environment Setup

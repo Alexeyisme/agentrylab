@@ -1,6 +1,6 @@
 from agentrylab.runtime.engine import Engine
 from agentrylab.runtime.state import State
-from agentrylab.runtime.scheduler.round_robin import RoundRobinScheduler
+from agentrylab.runtime.schedulers.round_robin import RoundRobinScheduler
 from agentrylab.runtime.nodes.agent import AgentNode
 from agentrylab.runtime.nodes.base import NodeOutput
 from tests.fake_impls import TestProvider, EchoTool

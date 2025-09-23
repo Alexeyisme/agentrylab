@@ -14,10 +14,6 @@ __all__ = [
     "LabStatus",
     "Event",
     "init",
-    "init_lab",
     "list_threads",
     "run",
 ]
-
-# Back-compat alias
-init_lab = init

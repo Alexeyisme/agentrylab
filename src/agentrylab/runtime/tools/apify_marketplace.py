@@ -1,19 +1,40 @@
-"""Data normalization components for scheduled tasks.
+"""Apify Facebook Marketplace tool for agentrylab.
 
-This module provides components that normalize raw data from different sources
-into standardized formats for processing by the task pipeline.
+This tool provides access to Facebook Marketplace data via Apify's scraper actor.
+It includes data normalization to convert raw marketplace data into a standardized format.
 """
 
 from __future__ import annotations
 
 import re
+import time
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
+from urllib.parse import urlencode
 
-from .sources import Listing
+from .base import Tool, ToolError, ToolResult
+
+
+@dataclass
+class Listing:
+    """Standardized listing format for marketplace data.
+    
+    This dataclass ensures consistent data structure across different
+    marketplace sources (Facebook, eBay, Craigslist, etc.).
+    """
+    id: str
+    title: str
+    price: float
+    currency: str
+    url: str
+    images: List[str] = field(default_factory=list)
+    posted_at: Optional[datetime] = None
+    location: Optional[Dict[str, Any]] = None  # {city, lat, lon, distance_km}
+    seller: Optional[Dict[str, Any]] = None
+    raw_data: Optional[Dict[str, Any]] = None  # Original source data
 
 
 class ListingNormalizer(ABC):
@@ -33,7 +54,7 @@ class ListingNormalizer(ABC):
         Returns:
             List of normalized Listing objects
         """
-        pass
+        raise NotImplementedError
 
 
 class FacebookMarketplaceNormalizer(ListingNormalizer):
@@ -353,126 +374,239 @@ class FacebookMarketplaceNormalizer(ListingNormalizer):
         return seller if seller else None
 
 
-class UniversalNormalizer(ListingNormalizer):
-    """Universal normalizer that can handle multiple source formats.
+class ApifyMarketplaceTool(Tool):
+    """Tool for Facebook Marketplace data via Apify actor.
     
-    This normalizer attempts to extract common fields from any data source
-    using flexible field mapping. It's useful for prototyping or when
-    dealing with multiple different source formats.
+    This tool uses Apify's Facebook Marketplace scraper actor to fetch
+    marketplace listings. It handles authentication, rate limiting, and
+    data normalization.
+    
+    Configuration:
+        actor_id: Apify actor ID (default: "apify/facebook-marketplace-scraper")
+        apify_token: Apify API token (from environment or config)
+        timeout_s: Request timeout in seconds (default: 300)
+        max_results: Maximum number of results to fetch (default: 100)
+        retries: Number of retry attempts (default: 3)
+        backoff: Backoff multiplier for retries (default: 2.0)
     """
     
-    def __init__(self, field_mapping: Optional[Dict[str, str]] = None, **params: Any):
+    def __init__(self, **params: Any):
+        super().__init__(**params)
         self.logger = logging.getLogger(__name__)
-        self.field_mapping = field_mapping or {
-            "id": ["id", "listingId", "url"],
-            "title": ["title", "name", "text", "heading"],
-            "price": ["price", "priceText", "amount"],
-            "url": ["url", "link", "href"],
-            "images": ["images", "imageUrls", "photos"],
-            "location": ["location", "city", "area"],
-        }
-        self.params = params
+        
+        # Default configuration
+        self.actor_id = params.get("actor_id", "apify/facebook-marketplace-scraper")
+        self.apify_token = params.get("apify_token")
+        self.timeout_s = int(params.get("timeout_s", 300))
+        self.max_results = int(params.get("max_results", 100))
+        self.retries = int(params.get("retries", 3))
+        self.backoff = float(params.get("backoff", 2.0))
+        
+        if not self.apify_token:
+            raise ToolError("ApifyMarketplaceTool requires 'apify_token' parameter")
+        
+        # Initialize normalizer
+        self.normalizer = FacebookMarketplaceNormalizer(**params)
     
-    def normalize(self, raw_data: List[Dict[str, Any]]) -> List[Listing]:
-        """Normalize data using flexible field mapping.
+    def run(self, **kwargs: Any) -> ToolResult:
+        """Execute the Apify actor and return normalized results.
         
         Args:
-            raw_data: List of raw data dictionaries
+            search_query: Search terms for marketplace listings
+            location: Location to search in (optional)
+            max_results: Override max results for this run
+            **kwargs: Additional parameters passed to Apify actor
             
         Returns:
-            List of normalized Listing objects
+            ToolResult with normalized marketplace data
         """
-        normalized = []
+        search_query = kwargs.get("search_query", "")
+        location = kwargs.get("location")
+        max_results = kwargs.get("max_results", self.max_results)
         
-        for item in raw_data:
-            try:
-                listing = self._normalize_item(item)
-                if listing:
-                    normalized.append(listing)
-            except Exception as e:
-                self.logger.warning(f"Failed to normalize item: {e}")
-                continue
-        
-        return normalized
-    
-    def _normalize_item(self, item: Dict[str, Any]) -> Optional[Listing]:
-        """Normalize a single item using field mapping."""
-        # Extract fields using mapping
-        id_value = self._extract_field(item, self.field_mapping["id"])
-        title = self._extract_field(item, self.field_mapping["title"])
-        price_str = self._extract_field(item, self.field_mapping["price"])
-        url = self._extract_field(item, self.field_mapping["url"])
-        
-        if not all([id_value, title, url]):
-            return None
-        
-        # Parse price
-        price = self._parse_price(price_str) if price_str else 0.0
-        currency = self._extract_currency(item, price_str)
-        
-        # Extract other fields
-        images = self._extract_images(item)
-        location = self._extract_location(item)
-        
-        return Listing(
-            id=str(id_value),
-            title=str(title),
-            price=price,
-            currency=currency,
-            url=str(url),
-            images=images,
-            location=location,
-            raw_data=item
-        )
-    
-    def _extract_field(self, item: Dict[str, Any], field_names: List[str]) -> Optional[str]:
-        """Extract field value using list of possible field names."""
-        for field_name in field_names:
-            if field_name in item and item[field_name]:
-                return str(item[field_name]).strip()
-        return None
-    
-    def _parse_price(self, price_str: str) -> float:
-        """Parse price string to float."""
-        if not price_str:
-            return 0.0
-        
-        # Clean price string
-        price_str = re.sub(r"[^\d.,]", "", str(price_str))
-        price_str = price_str.replace(",", "")
+        if not search_query:
+            return ToolResult(
+                ok=False,
+                data=[],
+                error="search_query parameter is required"
+            )
         
         try:
-            return float(price_str)
-        except (ValueError, TypeError):
-            return 0.0
+            # Remove search_query from kwargs to avoid duplicate parameter
+            kwargs_copy = kwargs.copy()
+            kwargs_copy.pop("search_query", None)
+            kwargs_copy.pop("location", None)
+            kwargs_copy.pop("max_results", None)
+            
+            raw_data = self._fetch_data(
+                search_query=search_query,
+                location=location,
+                max_results=max_results,
+                **kwargs_copy
+            )
+            
+            # Normalize the data
+            normalized_listings = self.normalizer.normalize(raw_data)
+            
+            # Convert to dict format for tool result
+            data = []
+            for listing in normalized_listings:
+                data.append({
+                    "id": listing.id,
+                    "title": listing.title,
+                    "price": listing.price,
+                    "currency": listing.currency,
+                    "url": listing.url,
+                    "images": listing.images,
+                    "posted_at": listing.posted_at.isoformat() if listing.posted_at else None,
+                    "location": listing.location,
+                    "seller": listing.seller,
+                })
+            
+            return ToolResult(
+                ok=True,
+                data=data,
+                meta={
+                    "provider": "apify_facebook_marketplace",
+                    "actor_id": self.actor_id,
+                    "count": len(data),
+                    "query": search_query,
+                    "location": location,
+                }
+            )
+            
+        except Exception as e:
+            self.logger.error(f"ApifyMarketplaceTool failed: {e}")
+            return ToolResult(
+                ok=False,
+                data=[],
+                error=f"Failed to fetch data from Apify: {e}"
+            )
     
-    def _extract_currency(self, item: Dict[str, Any], price_str: Optional[str]) -> str:
-        """Extract currency from item or price string."""
-        if price_str:
-            price_str = str(price_str).upper()
-            if "$" in price_str:
-                return "USD"
-            elif "€" in price_str:
-                return "EUR"
-            elif "₪" in price_str:
-                return "ILS"
+    def _fetch_data(self, **params: Any) -> List[Dict[str, Any]]:
+        """Fetch data from Apify Facebook Marketplace actor.
         
-        return "USD"  # Default
+        Args:
+            search_query: Search terms
+            location: Location filter (optional)
+            max_results: Maximum results to return
+            **params: Additional actor parameters
+            
+        Returns:
+            List of raw marketplace listing data
+            
+        Raises:
+            ToolError: If the actor fails or returns no data
+        """
+        try:
+            from apify_client import ApifyClient
+        except ImportError:
+            raise ToolError(
+                "apify-client package is required. Install with: pip install apify-client"
+            )
+        
+        # Initialize Apify client
+        client = ApifyClient(self.apify_token)
+        
+        # Prepare actor input - Facebook Marketplace scraper requires startUrls
+        search_query = params["search_query"]
+        location = params.get("location", "")
+        
+        # Construct Facebook Marketplace search URL
+        search_url = self._build_search_url(search_query, location)
+        
+        actor_input = {
+            "startUrls": [{"url": search_url}],
+            "maxResults": min(int(params.get("max_results", self.max_results)), 1000),
+            "proxy": {
+                "useApifyProxy": True,
+                "apifyProxyGroups": ["RESIDENTIAL"]
+            }
+        }
+        
+        # Add any additional parameters
+        for key, value in params.items():
+            if key not in ["search_query", "location", "max_results"] and value is not None:
+                actor_input[key] = value
+        
+        self.logger.info(f"Running Apify actor {self.actor_id} with query: {search_query}")
+        
+        # Run the actor with retries
+        for attempt in range(self.retries + 1):
+            try:
+                # Start the actor run
+                run = client.actor(self.actor_id).call(
+                    run_input=actor_input,
+                    timeout_secs=self.timeout_s,
+                    wait_secs=10
+                )
+                
+                if not run or not run.get("defaultDatasetId"):
+                    raise ToolError("Apify actor run failed or returned no dataset")
+                
+                # Fetch results from dataset
+                dataset = client.dataset(run["defaultDatasetId"])
+                items = list(dataset.iterate_items())
+                
+                if not items:
+                    self.logger.warning("Apify actor returned no results")
+                    return []
+                
+                self.logger.info(f"Fetched {len(items)} items from Apify actor")
+                return items
+                
+            except Exception as e:
+                if attempt < self.retries:
+                    wait_time = self.backoff ** attempt
+                    self.logger.warning(
+                        f"Apify actor attempt {attempt + 1} failed: {e}. "
+                        f"Retrying in {wait_time}s..."
+                    )
+                    time.sleep(wait_time)
+                else:
+                    raise ToolError(f"Apify actor failed after {self.retries + 1} attempts: {e}")
+        
+        return []  # Should never reach here, but for type safety
     
-    def _extract_images(self, item: Dict[str, Any]) -> List[str]:
-        """Extract images from item."""
-        images = []
-        for field in self.field_mapping["images"]:
-            if field in item and item[field]:
-                if isinstance(item[field], list):
-                    images.extend([str(img) for img in item[field] if img])
-                elif isinstance(item[field], str):
-                    images.append(item[field])
-        return list(set(filter(None, images)))
+    def _build_search_url(self, search_query: str, location: str = "") -> str:
+        """Build Facebook Marketplace search URL.
+        
+        Args:
+            search_query: Search terms
+            location: Location filter (optional)
+            
+        Returns:
+            Complete Facebook Marketplace search URL
+        """
+        base_url = "https://www.facebook.com/marketplace/search/"
+        params = {}
+        
+        if search_query:
+            params["query"] = search_query
+        if location:
+            params["location"] = location
+        
+        if params:
+            return base_url + "?" + urlencode(params)
+        return base_url
     
-    def _extract_location(self, item: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        """Extract location from item."""
-        for field in self.field_mapping["location"]:
-            if field in item and item[field]:
-                return {"city": str(item[field]).strip()}
-        return None
+    def validate_args(self, kwargs: Dict[str, Any]) -> None:
+        """Validate input arguments for the Apify actor.
+        
+        Args:
+            kwargs: Arguments to validate
+            
+        Raises:
+            ToolError: If arguments are invalid
+        """
+        if not kwargs.get("search_query"):
+            raise ToolError("search_query is required")
+        
+        max_results = kwargs.get("max_results", self.max_results)
+        if max_results > 1000:
+            raise ToolError("max_results cannot exceed 1000 (Apify limit)")
+        
+        if max_results <= 0:
+            raise ToolError("max_results must be positive")
+
+

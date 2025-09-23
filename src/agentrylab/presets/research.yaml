@@ -22,7 +22,7 @@ runtime:
   max_rounds: 6
   trace: { enabled: false }
   scheduler:
-    impl: agentrylab.runtime.scheduler.every_n.EveryNScheduler
+    impl: agentrylab.runtime.schedulers.every_n.EveryNScheduler
     params:
       schedule:
         scientistA: 1

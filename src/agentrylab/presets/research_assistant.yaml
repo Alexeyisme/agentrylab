@@ -18,7 +18,7 @@ objective: "Ask me to research any topic you're interested in."
 runtime:
   trace: { enabled: false }
   scheduler:
-    impl: agentrylab.runtime.scheduler.round_robin.RoundRobinScheduler
+    impl: agentrylab.runtime.schedulers.round_robin.RoundRobinScheduler
     params:
       order: ["assistant"]
   message_contract:

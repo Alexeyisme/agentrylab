@@ -13,7 +13,7 @@ from agentrylab.config.loader import load_config  # expects Preset-like object
 # Engine & runtime
 from agentrylab.runtime.engine import Engine
 from agentrylab.runtime.state import State
-from agentrylab.runtime.scheduler.base import Scheduler
+from agentrylab.runtime.schedulers.base import Scheduler
 from agentrylab.runtime.providers.base import LLMProvider  # protocol/ABC
 from agentrylab.runtime.tools.base import Tool
 from agentrylab.runtime.nodes.factory import make_node
@@ -481,13 +481,13 @@ def _build_scheduler(cfg: Any) -> Scheduler:
 
     runtime:
       scheduler:
-        impl: yourpkg.runtime.scheduler.custom.MyScheduler   # fully-qualified class path
+        impl: yourpkg.runtime.schedulers.custom.MyScheduler   # fully-qualified class path
         params: { ... }                                      # kwargs for constructor
 
     or (fallback location):
 
     scheduler:
-      impl: yourpkg.runtime.scheduler.custom.MyScheduler
+      impl: yourpkg.runtime.schedulers.custom.MyScheduler
       params: { ... }
 
     Notes:
@@ -504,11 +504,11 @@ def _build_scheduler(cfg: Any) -> Scheduler:
 
     if not sched_block or not hasattr(sched_block, "impl") or not getattr(sched_block, "impl"):
         raise ValueError(
-            "No scheduler.impl specified. Please set `runtime.scheduler.impl` (or `scheduler.impl`) "
+            "No scheduler.impl specified. Please set `runtime.schedulers.impl` (or `scheduler.impl`) "
             "to a fully-qualified class path implementing the Scheduler base class, e.g.\n"
             "  runtime:\n"
             "    scheduler:\n"
-            "      impl: agentrylab.runtime.scheduler.round_robin.RoundRobinScheduler\n"
+            "      impl: agentrylab.runtime.schedulers.round_robin.RoundRobinScheduler\n"
             "      params:\n"
             "        order: [pro, con, moderator, summarizer]"
         )
@@ -519,7 +519,7 @@ def _build_scheduler(cfg: Any) -> Scheduler:
     if "." not in impl:
         raise ValueError(
             f"Scheduler impl '{impl}' must be a fully-qualified class path "
-            f"(e.g. 'agentrylab.runtime.scheduler.round_robin.RoundRobinScheduler')"
+            f"(e.g. 'agentrylab.runtime.schedulers.round_robin.RoundRobinScheduler')"
         )
 
     module_name, class_name = impl.rsplit(".", 1)

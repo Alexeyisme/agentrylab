@@ -63,7 +63,7 @@ def _preset_with_moderator(impl: str) -> Dict[str, Any]:
         },
         "runtime": {
             "scheduler": {
-                "impl": "agentrylab.runtime.scheduler.round_robin.RoundRobinScheduler",
+                "impl": "agentrylab.runtime.schedulers.round_robin.RoundRobinScheduler",
                 "params": {"order": ["moderator"]},
             }
         },

@@ -13,7 +13,7 @@ def _preset_dict():
         "agents": [{"id": "pro", "role": "agent", "provider": "p1", "system_prompt": "You are the agent."}],
         "runtime": {
             "scheduler": {
-                "impl": "agentrylab.runtime.scheduler.round_robin.RoundRobinScheduler",
+                "impl": "agentrylab.runtime.schedulers.round_robin.RoundRobinScheduler",
                 "params": {"order": ["pro"]},
             }
         },

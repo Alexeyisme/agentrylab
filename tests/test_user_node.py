@@ -18,7 +18,7 @@ def _preset_with_user_and_agent():
         ],
         "runtime": {
             "scheduler": {
-                "impl": "agentrylab.runtime.scheduler.round_robin.RoundRobinScheduler",
+                "impl": "agentrylab.runtime.schedulers.round_robin.RoundRobinScheduler",
                 "params": {"order": ["user:alice", "talker"]},
             }
         },
@@ -36,7 +36,7 @@ def _preset_with_user_only():
         ],
         "runtime": {
             "scheduler": {
-                "impl": "agentrylab.runtime.scheduler.round_robin.RoundRobinScheduler",
+                "impl": "agentrylab.runtime.schedulers.round_robin.RoundRobinScheduler",
                 "params": {"order": ["user:alice"]},
             }
         },
@@ -105,7 +105,7 @@ def test_multi_user_targets_and_order(tmp_path):
         ],
         "runtime": {
             "scheduler": {
-                "impl": "agentrylab.runtime.scheduler.round_robin.RoundRobinScheduler",
+                "impl": "agentrylab.runtime.schedulers.round_robin.RoundRobinScheduler",
                 "params": {"order": ["user:alice", "user:bob", "talker"]},
             }
         },

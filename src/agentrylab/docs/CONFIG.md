@@ -14,7 +14,7 @@ objective: "Default topic for agents to discuss"
 
 runtime:
   scheduler:
-    impl: agentrylab.runtime.scheduler.round_robin.RoundRobinScheduler
+    impl: agentrylab.runtime.schedulers.round_robin.RoundRobinScheduler
     params:
       order: ["agent1", "agent2"]
   max_rounds: 10
@@ -53,7 +53,7 @@ agents:
 **Round Robin** (default)
 ```yaml
 scheduler:
-  impl: agentrylab.runtime.scheduler.round_robin.RoundRobinScheduler
+  impl: agentrylab.runtime.schedulers.round_robin.RoundRobinScheduler
   params:
     order: ["agent1", "agent2", "agent3"]
 ```
@@ -61,7 +61,7 @@ scheduler:
 **Every N**
 ```yaml
 scheduler:
-  impl: agentrylab.runtime.scheduler.every_n.EveryNScheduler
+  impl: agentrylab.runtime.schedulers.every_n.EveryNScheduler
   params:
     schedule:
       agent1: 1
@@ -89,6 +89,37 @@ tools:
 - `per_run_max`: Total calls across entire experiment
 - `per_iteration_max`: Calls per engine tick (resets each turn)
 - `per_run_min` / `per_iteration_min`: Advisory minimums (not enforced)
+
+## 📝 User Inputs (Optional)
+
+Define dynamic parameters that users can provide:
+
+```yaml
+user_inputs:
+  query:
+    type: string
+    description: "What are you looking for?"
+    placeholder: "e.g., MacBook Pro M3"
+    required: true
+  location:
+    type: string
+    description: "Search location"
+    placeholder: "e.g., Tel Aviv, Israel"
+    required: true
+  min_price:
+    type: number
+    description: "Minimum price"
+    default: 0
+    min: 0
+  max_price:
+    type: number
+    description: "Maximum price"
+    validate: "value >= min_price"
+```
+
+**Types**: `string`, `number`, `boolean`, `enum`
+**Validation**: `min`, `max`, `choices`, `validate` (expression)
+**Usage**: Reference with `${user_inputs.key}` in your config
 
 ## 🎛️ Provider Settings
 
@@ -205,6 +236,10 @@ runtime:
     tools:
       per_run_max: 10   # Prevent runaway costs
 ```
+
+## 🔁 Scheduling (optional)
+
+Want to run presets on a schedule? Use external schedulers like cron, systemd timers, or cloud functions to call `agentrylab run` at your desired intervals.
 
 ---
 

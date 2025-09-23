@@ -24,7 +24,6 @@ class MessageContract(BaseModel):
 class Provider(BaseModel):
     id: str
     impl: str = Field(..., description="Fully-qualified class path implementing LLMProvider")
-    type: Optional[str] = Field(None, description="Optional shorthand/type; tolerated but unused")
 
     # Common LLM kwargs
     # Note: many providers require `model`; implementations may reject a
@@ -106,6 +105,28 @@ class User(BaseNode):
     role: Literal["user"] = "user"
 
 
+# --------------------------- User Inputs ---------------------------
+class UserInputSpec(BaseModel):
+    """Schema for a single user-provided parameter.
+
+    Supported fields are intentionally minimal and tolerant. Extra keys are allowed.
+    """
+    type: Optional[Literal["string", "number", "enum"]] = "string"
+    description: Optional[str] = None
+    placeholder: Optional[str] = None
+    required: bool = False
+    default: Optional[Any] = None
+    # Numeric bounds (applies when type == "number")
+    min: Optional[float] = None
+    max: Optional[float] = None
+    # Enum choices (applies when type == "enum")
+    choices: Optional[List[str]] = None
+    # Simple validation expression, e.g., "value >= min_price"
+    validate: Optional[str] = None
+
+    model_config = dict(extra="allow")
+
+
 # ----------------------------- Scheduler -----------------------------
 class SchedulerBlock(BaseModel):
     impl: str = Field(..., description="Fully-qualified class path implementing Scheduler")
@@ -160,6 +181,9 @@ class Preset(BaseModel):
     # Storage
     persistence: Optional[Persistence] = None
     persistence_tools: Optional[Dict[str, Any]] = None
+
+    # Dynamic user input specification (optional)
+    user_inputs: Optional[Dict[str, UserInputSpec]] = None
 
     # Allow extra top-level keys like version, name, logs, room_rules, etc.
     model_config = dict(extra="allow")

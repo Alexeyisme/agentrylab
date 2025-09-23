@@ -114,11 +114,7 @@ class NodeBase(ABC):
 
         # Budget check (global + per-tool) if State provides helpers
         if state is not None and hasattr(state, "can_call_tool"):
-            try:
-                allowed, reason = state.can_call_tool(tool_id)
-            except TypeError:
-                # Backward-compat: older signature with no args
-                allowed, reason = state.can_call_tool()  # type: ignore[misc]
+            allowed, reason = state.can_call_tool(tool_id)
             if not allowed:
                 logger.warning(
                     "[%s] Tool budget exceeded for %s: %s",
@@ -137,11 +133,7 @@ class NodeBase(ABC):
 
         # Note attempt after passing budget check
         if state is not None and hasattr(state, "note_tool_call"):
-            try:
-                state.note_tool_call(tool_id)
-            except TypeError:
-                # Backward-compat: older signature with no args
-                state.note_tool_call()  # type: ignore[misc]
+            state.note_tool_call(tool_id)
 
         result = tool(**kwargs)
         logger.info("[%s] Tool %s returned ok=%s", getattr(self, "role_name", "?"), tool_id, result.get("ok"))

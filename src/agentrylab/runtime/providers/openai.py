@@ -70,7 +70,7 @@ class OpenAIProvider(LLMProvider):
         self,
         messages: List[Message],
         *,
-        tools: Optional[List[Dict[str, Any]]],  # unused for now
+        tools: Optional[List[Dict[str, Any]]] = None,
         **kwargs: Any,
     ) -> Dict[str, Any]:
         url = self._endpoint()

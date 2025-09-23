@@ -4,14 +4,14 @@ import json
 import os
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Any, Dict
 
 import typer
 
 from agentrylab.config.loader import load_config, _env_interp_deep
 from agentrylab.config.validate import validate_preset_dict
 import yaml
-from agentrylab.lab import init_lab
+from agentrylab.api import init
 from agentrylab.persistence.store import Store
 from agentrylab.logging import setup_logging
 from agentrylab.presets import path as packaged_preset_path
@@ -192,6 +192,11 @@ def run_cmd(
         "--objective",
         help="Override preset objective/topic for this run",
     ),
+    params: Optional[str] = typer.Option(
+        None,
+        "--params",
+        help="JSON object to satisfy user_inputs non-interactively (e.g. '{\"query\":\"mbp\"}')",
+    ),
 ) -> None:
     """Run a preset once (stream by default)."""
     # Load .env before interpolation/validation so ${VARS} resolve
@@ -199,17 +204,125 @@ def run_cmd(
     # Resolve preset
     preset_path = _resolve_preset(preset)
 
-    # Lint: read raw YAML and run advisory checks
+    # Load raw YAML for user input processing (before env interpolation)
+    raw = yaml.safe_load(preset_path.read_text(encoding="utf-8")) or {}
+
+    # If preset declares user_inputs, collect values and substitute before env interpolation
+    def _collect_user_inputs(spec: Dict[str, Any]) -> Dict[str, Any]:
+        # 1) If --params provided, parse and use
+        if params:
+            try:
+                provided = json.loads(params)
+                if not isinstance(provided, dict):
+                    raise ValueError("--params must be a JSON object")
+            except Exception as e:
+                raise typer.BadParameter(f"Invalid --params JSON: {e}")
+        else:
+            provided = {}
+
+        values: Dict[str, Any] = {}
+        # Seed with provided
+        values.update(provided)
+        # Interactive prompting only if needed and in a tty
+        interactive_possible = sys.stdin.isatty()
+
+        for key, s in (spec or {}).items():
+            if key in values:
+                continue
+            s = s or {}
+            typ = s.get("type", "string")
+            desc = s.get("description")
+            placeholder = s.get("placeholder")
+            required = bool(s.get("required", False))
+            default = s.get("default")
+            prompt_label = desc or key
+            if placeholder:
+                prompt_label = f"{prompt_label} [{placeholder}]"
+
+            if not interactive_possible and required and default is None and params is None:
+                raise typer.BadParameter(
+                    f"Missing required user_input '{key}'. Provide --params JSON or run in a TTY."
+                )
+
+            # Prompt if possible, else use default (can be None)
+            if interactive_possible and (required or default is None):
+                if typ == "enum" and isinstance(s.get("choices"), list):
+                    typer.echo(f"{prompt_label} (choices: {', '.join(map(str, s['choices']))})")
+                raw = typer.prompt(key, default=default)
+            else:
+                raw = default
+
+            # Coerce and validate
+            val: Any = raw
+            if typ == "number" and val is not None:
+                try:
+                    # Prefer int if possible
+                    ival = int(str(val))
+                    fval: Any = ival
+                except Exception:
+                    fval = float(str(val))
+                # min/max
+                if s.get("min") is not None and fval < s["min"]:
+                    raise typer.BadParameter(f"{key} must be >= {s['min']}")
+                if s.get("max") is not None and fval > s["max"]:
+                    raise typer.BadParameter(f"{key} must be <= {s['max']}")
+                val = fval
+            if typ == "enum" and val is not None:
+                choices = s.get("choices") or []
+                if choices and val not in choices:
+                    raise typer.BadParameter(f"{key} must be one of: {', '.join(map(str, choices))}")
+
+            # Simple validate expression
+            expr = s.get("validate")
+            if expr:
+                # Provide a minimal safe eval environment
+                env = {"value": val}
+                env.update(values)  # allow referring to other keys
+                try:
+                    ok = bool(eval(expr, {"__builtins__": {}}, env))  # nosec - controlled exprs
+                except Exception as e:
+                    raise typer.BadParameter(f"Validation for {key} failed: {e}")
+                if not ok:
+                    raise typer.BadParameter(f"Validation for {key} failed: {expr}")
+
+            values[key] = val
+        return values
+
+    def _subst_user_inputs(obj: Any, values: Dict[str, Any]) -> Any:
+        # Replace ${user_inputs.key} occurrences in strings
+        if isinstance(obj, str):
+            for k, v in values.items():
+                token = f"${{user_inputs.{k}}}"
+                if token in obj:
+                    obj = obj.replace(token, str(v))
+            return obj
+        if isinstance(obj, list):
+            return [_subst_user_inputs(x, values) for x in obj]
+        if isinstance(obj, dict):
+            return {kk: _subst_user_inputs(vv, values) for kk, vv in obj.items()}
+        return obj
+
+    if isinstance(raw, dict) and isinstance(raw.get("user_inputs"), dict):
+        try:
+            collected = _collect_user_inputs(raw["user_inputs"])
+        except typer.BadParameter as e:
+            typer.echo(str(e))
+            raise typer.Exit(code=2)
+        # Substitute into raw document
+        raw = _subst_user_inputs(raw, collected)
+
+    # Now apply environment interpolation after user input substitution
+    raw = _env_interp_deep(raw)
+
+    # Lint: run advisory checks on the processed config
     try:
-        raw = yaml.safe_load(preset_path.read_text(encoding="utf-8")) or {}
-        raw = _env_interp_deep(raw)
         warnings = validate_preset_dict(raw) if isinstance(raw, dict) else []
         for msg in warnings:
             typer.echo(f"[lint] {msg}")
     except Exception:
         pass
 
-    cfg = load_config(str(preset_path))
+    cfg = load_config(raw if isinstance(raw, dict) else str(preset_path))
 
     # Optional: override objective/topic for this run
     if objective is not None:
@@ -228,7 +341,7 @@ def run_cmd(
         # Do not block run on logging issues
         pass
 
-    lab = init_lab(cfg, thread_id=thread_id, resume=resume)
+    lab = init(cfg, experiment_id=thread_id, resume=resume)
 
     # Gather user-node ids for interactive mode
     user_ids: list[str] = []
@@ -402,7 +515,7 @@ def extend_cmd(
     _load_env()
     preset_path = _resolve_preset(preset)
     cfg = load_config(str(preset_path))
-    lab = init_lab(cfg, thread_id=thread_id, resume=True)
+    lab = init(cfg, experiment_id=thread_id, resume=True)
     lab.extend(add_iters=add_iters)
     typer.echo(f"Extended thread {thread_id} by {add_iters} iterations.")
 
@@ -495,7 +608,7 @@ def say_cmd(
     _load_env()
     preset_path = _resolve_preset(preset)
     cfg = load_config(str(preset_path))
-    lab = init_lab(cfg, thread_id=thread_id, resume=True)
+    lab = init(cfg, experiment_id=thread_id, resume=True)
     lab.post_user_message(message, user_id=user_id)
     typer.echo(f"Appended user message to thread '{thread_id}' as {user_id}.")
 

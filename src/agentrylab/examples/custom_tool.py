@@ -1,1 +1,0 @@
-# Minimal custom tool example

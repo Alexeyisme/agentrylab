@@ -31,7 +31,7 @@ def _base_preset() -> Dict[str, Any]:
         ],
         "runtime": {
             "scheduler": {
-                "impl": "agentrylab.runtime.scheduler.round_robin.RoundRobinScheduler",
+                "impl": "agentrylab.runtime.schedulers.round_robin.RoundRobinScheduler",
                 "params": {"order": ["pro"]},
             },
             # allow extra fields like budgets

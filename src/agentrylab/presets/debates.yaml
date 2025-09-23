@@ -27,7 +27,7 @@ runtime:
     # file: "/tmp/agentrylab-trace.jsonl"  # optional: write trace to a file
   max_rounds: 6                        # hard stop for debate turns; summarizer scheduled on final round
   scheduler:
-    impl: agentrylab.runtime.scheduler.every_n.EveryNScheduler  # pick who speaks each turn
+    impl: agentrylab.runtime.schedulers.every_n.EveryNScheduler  # pick who speaks each turn
     params:
       schedule:                        # Every‑N cadence (1=every turn, 2=every 2nd turn, ...)
         pro: 1                         # Pro debater speaks every turn
@@ -272,7 +272,7 @@ agents:
       - Next Steps: 1–3 bullets (optional).
 
 # === Scheduling (who speaks when) ===
-# Note: Using runtime.scheduler.params.schedule above for consistency
+# Note: Using runtime.schedulers.params.schedule above for consistency
 
 # === Persistence backends ===
 persistence_tools:

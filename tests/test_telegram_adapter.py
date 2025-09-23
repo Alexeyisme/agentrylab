@@ -54,12 +54,12 @@ class TestTelegramAdapter:
         assert state.status == ConversationStatus.ACTIVE
         assert state.lab_instance == mock_lab
         
-        mock_init.assert_called_once_with(
-            "debates",
-            experiment_id=conversation_id,
-            prompt="Test topic",
-            resume=True
-        )
+        # The adapter loads the preset and calls init with the loaded config
+        mock_init.assert_called_once()
+        call_args = mock_init.call_args
+        assert call_args[1]["experiment_id"] == conversation_id
+        assert call_args[1]["prompt"] == "Test topic"
+        assert call_args[1]["resume"]
     
     @patch('agentrylab.telegram.adapter.init')
     def test_start_conversation_with_custom_id(self, mock_init):
@@ -352,12 +352,12 @@ class TestTelegramAdapter:
         )
         
         assert conversation_id is not None
-        mock_init.assert_called_once_with(
-            "debates",
-            experiment_id=conversation_id,
-            prompt="Test topic",
-            resume=False
-        )
+        # The adapter loads the preset and calls init with the loaded config
+        mock_init.assert_called_once()
+        call_args = mock_init.call_args
+        assert call_args[1]["experiment_id"] == conversation_id
+        assert call_args[1]["prompt"] == "Test topic"
+        assert not call_args[1]["resume"]
     
     @patch('agentrylab.telegram.adapter.init')
     def test_start_conversation_with_resume_true(self, mock_init):
@@ -373,12 +373,12 @@ class TestTelegramAdapter:
         )
         
         assert conversation_id is not None
-        mock_init.assert_called_once_with(
-            "debates",
-            experiment_id=conversation_id,
-            prompt="Test topic",
-            resume=True
-        )
+        # The adapter loads the preset and calls init with the loaded config
+        mock_init.assert_called_once()
+        call_args = mock_init.call_args
+        assert call_args[1]["experiment_id"] == conversation_id
+        assert call_args[1]["prompt"] == "Test topic"
+        assert call_args[1]["resume"]
     
     @patch('agentrylab.persistence.store.Store')
     def test_can_resume_conversation_true(self, mock_store_class):

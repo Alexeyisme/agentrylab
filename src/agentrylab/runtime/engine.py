@@ -5,7 +5,7 @@ from typing import Any, Dict, Iterable, List, Mapping, Optional
 import time
 
 from agentrylab.runtime.nodes.base import NodeBase, NodeOutput
-from agentrylab.runtime.scheduler.base import Scheduler
+from agentrylab.runtime.schedulers.base import Scheduler
 from agentrylab.runtime.actions import CONTINUE, STOP, STEP_BACK
 
 

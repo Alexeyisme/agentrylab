@@ -4,7 +4,7 @@ import json
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, Iterator, List, Mapping, MutableMapping, Optional, TypedDict
+from typing import Any, Dict, Iterable, List, Mapping, MutableMapping, Optional, TypedDict
 
 
 # ---- Public types ----------------------------------------------------------
@@ -96,17 +96,6 @@ class LLMProvider(ABC):
         # should not reach here
         raise LLMProviderError(str(last_err) if last_err else "Unknown provider error")
 
-    def stream_chat(
-        self,
-        messages: List[Message],
-        *,
-        tools: Optional[List[Dict[str, Any]]] = None,
-        **kwargs: Any,
-    ) -> Iterator[Dict[str, Any]]:
-        """Streaming chat (optional). Yields chunk dicts with `delta`, may end with a final object.
-        Base class raises NotImplementedError; providers override if they support streaming.
-        """
-        raise NotImplementedError("stream_chat is not implemented for this provider")
 
     # -------------------- To be implemented by subclasses --------------------
     @abstractmethod

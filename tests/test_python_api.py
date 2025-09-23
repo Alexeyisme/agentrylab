@@ -22,7 +22,7 @@ def _preset_dict():
         ],
         "runtime": {
             "scheduler": {
-                "impl": "agentrylab.runtime.scheduler.round_robin.RoundRobinScheduler",
+                "impl": "agentrylab.runtime.schedulers.round_robin.RoundRobinScheduler",
                 "params": {"order": ["pro"]},
             },
             "message_contract": {"require_metadata": True, "min_citations": 1},

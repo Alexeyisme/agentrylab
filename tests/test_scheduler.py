@@ -1,5 +1,5 @@
-from agentrylab.runtime.scheduler.round_robin import RoundRobinScheduler
-from agentrylab.runtime.scheduler.every_n import EveryNScheduler
+from agentrylab.runtime.schedulers.round_robin import RoundRobinScheduler
+from agentrylab.runtime.schedulers.every_n import EveryNScheduler
 
 
 def test_round_robin_sequence():

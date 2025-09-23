@@ -8,7 +8,7 @@ This adapter targets the `/api/chat` endpoint and returns the raw JSON; the
 """
 
 import json
-from typing import Any, Dict, Iterator, List, Mapping, Optional
+from typing import Any, Dict, List, Mapping, Optional
 import os
 
 import httpx
@@ -112,40 +112,3 @@ class OllamaProvider(LLMProvider):
             raise LLMProviderError(str(data.get("error")))
         return data  # raw JSON; base class will normalize content/metadata
 
-    # Optional streaming support
-    def stream_chat(
-        self,
-        messages: List[Message],
-        *,
-        tools: Optional[List[Dict[str, Any]]] = None,
-        **kwargs: Any,
-    ) -> Iterator[Dict[str, Any]]:
-        """Stream tokens from Ollama.
-
-        Yields dicts with `delta` while streaming, and a final dict with `content` when done.
-        """
-        url = self._endpoint()
-        payload = self._build_payload(messages, stream=True, **kwargs)
-
-        buffer: List[str] = []
-        with httpx.Client(timeout=self.timeout, headers=self.headers) as client:
-            with client.stream("POST", url, json=payload) as resp:
-                resp.raise_for_status()
-                for line in resp.iter_lines():
-                    if not line:
-                        continue
-                    try:
-                        obj = json.loads(line)
-                    except Exception:
-                        continue
-                    # each chunk typically has { "message": {"content": "..."}, "done": bool }
-                    msg = obj.get("message") if isinstance(obj, Mapping) else None
-                    if isinstance(msg, Mapping):
-                        delta = msg.get("content")
-                        if isinstance(delta, str) and delta:
-                            buffer.append(delta)
-                            yield {"delta": delta, "raw": obj}
-                    if obj.get("done"):
-                        final_text = "".join(buffer)
-                        yield {"content": final_text, "raw": obj}
-                        return
