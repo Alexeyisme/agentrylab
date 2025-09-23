@@ -1,0 +1,104 @@
+# Simple Facebook Marketplace Deals Finder
+# Uses existing agentrylab patterns - no overengineering!
+
+version: "1.0.0"
+id: marketplace_deals
+name: "Facebook Marketplace Deals Finder"
+description: "Scheduled monitoring of Facebook Marketplace for specific deals"
+
+# Task configuration - SINGLE SOURCE OF TRUTH
+tasks:
+  - id: deals_monitor
+    name: "Deals Monitor"
+    description: "Monitors Facebook Marketplace for deals"
+    schedule:
+      type: "cron"              # or "interval"
+      value: "0 9 * * *"        # daily at 09:00 (local timezone)
+      timezone: "Asia/Jerusalem"
+      duration: "3d"            # run for 3 days
+    params:
+      location: "Ra'anana, Israel"
+      query: ${SEARCH_QUERY:"Bambu Lab X1 Carbon best value deals"}
+      top_n: 3                 # Number of final results to return (best deals)
+      # Price filtering (generic)
+      min_price: 1000
+      max_price: 15000
+      currency: "ILS"           # Target currency for price filtering
+      # Search parameters
+      max_results: 50          # Max raw listings to fetch from Facebook
+    agents: ["deals_finder"]
+
+# Runtime Configuration
+runtime:
+  task_manager:
+    enabled: true
+    persistence: true
+    max_concurrent_tasks: 10
+    background_runner: "threading"
+  scheduler:
+    impl: agentrylab.runtime.scheduler.round_robin.RoundRobinScheduler
+    params:
+      order: [deals_finder]
+  max_rounds: 1  # Single execution per scheduled run
+
+# Providers
+providers:
+  - id: openai_gpt4o_mini
+    impl: agentrylab.runtime.providers.openai.OpenAIProvider
+    model: "gpt-4o-mini"
+
+# Tools - following existing agentrylab pattern
+tools:
+  - id: apify_marketplace_source
+    impl: agentrylab.runtime.tasks.sources.ApifyActorSource
+    params:
+      apify_token: ${APIFY_API_TOKEN}
+      actor_id: "apify/facebook-marketplace-scraper"
+      timeout_s: 300
+      retries: 3
+      backoff: 2.0
+    budget:
+      per_run_max: 10
+      per_iteration_max: 1
+
+# Agents - following existing agentrylab pattern  
+agents:
+  - id: deals_finder
+    role: agent
+    display_name: "Deals Finder"
+    description: "Finds and analyzes Facebook Marketplace deals"
+    provider: openai_gpt4o_mini
+    tools: [apify_marketplace_source]  # Use the tool directly!
+    context:
+      max_messages: 3
+      pin_objective: true
+    system_prompt: |
+      You are a deals finder for Facebook Marketplace. Your job is to:
+      1. Search for deals using the apify_marketplace_source tool
+      2. Analyze each deal for value and quality
+      3. Rank deals by best value (price vs quality)
+      4. Return the top deals with explanations
+      
+      Focus on:
+      - Price competitiveness
+      - Item condition
+      - Location convenience
+      - Seller reputation indicators
+      
+      Always provide reasoning for your rankings.
+      Return results in a clear, structured format.
+
+# Persistence Configuration
+persistence:
+  checkpoints: [sqlite]
+  transcript: [jsonl]
+
+persistence_tools:
+  sqlite:
+    impl: LangGraphSqliteSaver
+    params:
+      db_path: "outputs/checkpoints.db"
+  jsonl:
+    impl: LangGraphJsonlSaver
+    params:
+      path: "outputs/transcripts"
