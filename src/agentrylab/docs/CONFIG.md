@@ -1,36 +1,211 @@
-# Config
+# ⚙️ Configuration Guide
 
-Budgets
-- Per-run vs per-iteration: `per_run_*` limits apply across the entire thread/run; `per_iteration_*` limits apply per engine tick.
-- Reset semantics: Per-iteration counters reset automatically at the start of every tick.
-- Scope: Per-iteration limits are enforced per tool id and shared across all agents that run in the same tick. If multiple agents execute in a single tick, they share that tick's budget bucket for that tool id.
-- Minima: `per_run_min` and `per_iteration_min` are advisory (not enforced at call time). Maxima are enforced before a tool call.
+**YAML-first presets. Define your lab, run your agents.**
 
-Engine behavior
-- `runtime.stop_on_error: bool` (default: false)
-  - When true, the engine stops the run after recording the first node error in a tick.
-  - When false (default), errors are recorded in the transcript and the run continues.
+## 🎯 Basic Structure
 
-Provider extras and per-call overrides (OpenAI)
-- Set adapter defaults in the provider block using `extra:`.
-- Example:
-```
+```yaml
+version: "1.0.0"
+id: my_lab
+name: "My Awesome Lab"
+description: "What this lab does"
+
+objective: "Default topic for agents to discuss"
+
+runtime:
+  scheduler:
+    impl: agentrylab.runtime.scheduler.round_robin.RoundRobinScheduler
+    params:
+      order: ["agent1", "agent2"]
+  max_rounds: 10
+
 providers:
-  - id: openai_gpt4o_mini
+  - id: openai
     impl: agentrylab.runtime.providers.openai.OpenAIProvider
-    model: gpt-4o-mini
+    model: "gpt-4o-mini"
+    api_key: ${OPENAI_API_KEY}
+
+tools:
+  - id: search
+    impl: agentrylab.runtime.tools.ddg.DuckDuckGoSearchTool
+    params:
+      max_results: 5
+
+agents:
+  - id: agent1
+    role: agent
+    provider: openai
+    tools: [search]
+    system_prompt: "You are a helpful assistant."
+```
+
+## 🎭 Agent Roles
+
+| Role | What It Does |
+|------|-------------|
+| `agent` | Regular speaking agent |
+| `moderator` | Controls debate flow (JSON output) |
+| `summarizer` | Wraps up conversations |
+| `advisor` | Gives feedback to other agents |
+
+## 🔄 Schedulers
+
+**Round Robin** (default)
+```yaml
+scheduler:
+  impl: agentrylab.runtime.scheduler.round_robin.RoundRobinScheduler
+  params:
+    order: ["agent1", "agent2", "agent3"]
+```
+
+**Every N**
+```yaml
+scheduler:
+  impl: agentrylab.runtime.scheduler.every_n.EveryNScheduler
+  params:
+    schedule:
+      agent1: 1
+      agent2: 2  # runs every 2nd turn
+      summarizer:
+        every_n: 3
+        run_on_last: true
+```
+
+## 🛠️ Tools & Budgets
+
+**Basic Tool**
+```yaml
+tools:
+  - id: search_ddg
+    impl: agentrylab.runtime.tools.ddg.DuckDuckGoSearchTool
+    params:
+      max_results: 5
+    budget:
+      per_run_max: 10      # Total calls per run
+      per_iteration_max: 2 # Calls per turn
+```
+
+**Tool Budgets**
+- `per_run_max`: Total calls across entire experiment
+- `per_iteration_max`: Calls per engine tick (resets each turn)
+- `per_run_min` / `per_iteration_min`: Advisory minimums (not enforced)
+
+## 🎛️ Provider Settings
+
+**OpenAI Provider**
+```yaml
+providers:
+  - id: openai
+    impl: agentrylab.runtime.providers.openai.OpenAIProvider
+    model: "gpt-4o-mini"
     api_key: ${OPENAI_API_KEY}
     extra:
       max_tokens: 300
+      temperature: 0.7
       top_p: 0.9
-      frequency_penalty: 0.0
-      presence_penalty: 0.0
-      stop: ["\n\n"]
 ```
-- Per-call overrides (advanced):
-  - The OpenAI adapter accepts these keys per call as well. Nodes can forward
-    them via their `llm_params(...)` method. By default, nodes only pass
-    `temperature`. If you need to override other keys per node/turn, extend the
-    node’s `llm_params` to include the desired keys (e.g., `max_tokens`,
-    `top_p`).
-  - See `src/agentrylab/runtime/nodes/*` for examples.
+
+**Ollama Provider**
+```yaml
+providers:
+  - id: ollama
+    impl: agentrylab.runtime.providers.ollama.OllamaProvider
+    model: "llama3:latest"
+    base_url: "http://localhost:11434"
+    timeout: 30
+```
+
+## 🎯 Agent Configuration
+
+```yaml
+agents:
+  - id: comedian
+    role: agent
+    provider: openai
+    tools: [search]
+    context:
+      max_messages: 5
+      pin_objective: true
+      running_summary: false
+    system_prompt: |
+      You are a comedian. Be funny and creative.
+      Always provide substantive responses - never leave empty.
+```
+
+## 🔧 Runtime Options
+
+```yaml
+runtime:
+  max_rounds: 10
+  stop_on_error: false  # Continue on errors (default)
+  trace:
+    enabled: false
+  message_contract:
+    require_metadata: false
+  context_defaults:
+    pin_objective: true
+```
+
+## 💾 Persistence
+
+```yaml
+persistence:
+  checkpoints: [sqlite]
+  transcript: [jsonl]
+
+persistence_tools:
+  sqlite:
+    impl: LangGraphSqliteSaver
+    params:
+      db_path: "outputs/checkpoints.db"
+  jsonl:
+    impl: LangGraphJsonlSaver
+    params:
+      path: "outputs/transcripts"
+```
+
+## 🎨 Environment Variables
+
+Use `${VAR_NAME}` syntax in YAML:
+
+```yaml
+providers:
+  - id: openai
+    api_key: ${OPENAI_API_KEY}
+    model: ${MODEL_NAME:gpt-4o-mini}  # Default value
+```
+
+## 🧯 Common Patterns
+
+**Tool Calling in Agents**
+```yaml
+system_prompt: |
+  You have access to the search tool. Use it like this:
+  ```json
+  {"tool": "search_ddg", "args": {"query": "your search terms"}}
+  ```
+  Always use real tool results, never generate fake URLs.
+```
+
+**Human-in-the-Loop**
+```yaml
+agents:
+  - id: user
+    role: user  # Special role for human input
+  - id: assistant
+    role: agent
+    # ... rest of config
+```
+
+**Error Handling**
+```yaml
+runtime:
+  stop_on_error: false  # Continue on errors
+  budgets:
+    tools:
+      per_run_max: 10   # Prevent runaway costs
+```
+
+---
+
+**Ready to build your own lab? Start with a preset and customize! 🚀**
