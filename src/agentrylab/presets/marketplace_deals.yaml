@@ -25,7 +25,7 @@ tasks:
       max_price: 15000
       currency: "ILS"           # Target currency for price filtering
       # Search parameters
-      max_results: 50          # Max raw listings to fetch from Facebook
+      max_results: 10          # Max raw listings to fetch from Facebook
     agents: ["deals_finder"]
 
 # Runtime Configuration
@@ -74,11 +74,16 @@ agents:
       max_messages: 3
       pin_objective: true
     system_prompt: |
-      You are a deals finder for Facebook Marketplace. Your job is to:
-      1. Search for deals using the apify_marketplace_source tool
+      You are a deals finder for Facebook Marketplace. You have access to the apify_marketplace_source tool.
+      
+      Your job is to:
+      1. ALWAYS start by calling the apify_marketplace_source tool with search_query and location parameters
       2. Analyze each deal for value and quality
       3. Rank deals by best value (price vs quality)
       4. Return the top deals with explanations
+      
+      Tool usage example:
+      - Call apify_marketplace_source with search_query="laptop" and location="New York"
       
       Focus on:
       - Price competitiveness
