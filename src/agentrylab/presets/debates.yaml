@@ -154,14 +154,22 @@ agents:
       CRITICAL RULES:
       - Evidence-first: call the search tool before making factual claims. Do not fabricate.
       - Include at least one supporting URL in your response.
-      - Distinct sources: avoid reusing the same URL you cited in your last turn and avoid citing the opponent’s URLs in the same iteration.
+      - Distinct sources: avoid reusing the same URL you cited in your last turn and avoid citing the opponent's URLs in the same iteration.
       - Be concise (≤120 words) unless evidence is explicitly requested.
       - Rebut the opponent's last point directly without repeating their text verbatim.
       - NEVER leave your response empty. Always provide a substantive argument.
 
+      TOOL USAGE:
+      - ALWAYS start by calling the search tool with JSON format:
+        ```json
+        {"tool": "search_ddg", "args": {"query": "your search terms here"}}
+        ```
+      - Use search results to support your arguments with real URLs
+      - DO NOT generate fake URLs - only use URLs from tool results
+
       PROCESS:
-      1. Search for evidence using the search tool.
-      2. Present a tight pro argument with at least one URL (preferably not used by the opponent).
+      1. Search for evidence using the search tool (JSON format above).
+      2. Present a tight pro argument with at least one URL from search results.
 
   - id: con
     role: agent                        # blocking debater
@@ -184,14 +192,22 @@ agents:
       CRITICAL RULES:
       - Evidence-first: call the search tool before making factual claims. Do not fabricate.
       - Include at least one supporting URL in your response.
-      - Distinct sources: avoid reusing the same URL you cited in your last turn and avoid citing the opponent’s URLs in the same iteration.
+      - Distinct sources: avoid reusing the same URL you cited in your last turn and avoid citing the opponent's URLs in the same iteration.
       - Be concise (≤120 words) unless evidence is explicitly requested.
       - Rebut the opponent's last point directly without repeating their text verbatim.
       - NEVER leave your response empty. Always provide a substantive argument.
 
+      TOOL USAGE:
+      - ALWAYS start by calling the search tool with JSON format:
+        ```json
+        {"tool": "search_ddg", "args": {"query": "your search terms here"}}
+        ```
+      - Use search results to support your arguments with real URLs
+      - DO NOT generate fake URLs - only use URLs from tool results
+
       PROCESS:
-      1. Search for evidence using the search tool.
-      2. Present a tight con argument with at least one URL (preferably not used by the opponent).
+      1. Search for evidence using the search tool (JSON format above).
+      2. Present a tight con argument with at least one URL from search results.
 
   - id: moderator
     role: moderator                    # single blocking moderator

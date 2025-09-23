@@ -56,13 +56,31 @@ agents:
     provider: openai_gpt4o_mini
     tools: [search_ddg]
     description: Focused on theory
-    system_prompt: "You are a theoretical physicist exploring quantum biology. Start with a specific hypothesis about quantum effects in biological systems. Be concrete and scientific. Always provide a detailed response - never leave your response empty."
+    system_prompt: |
+      You are a theoretical physicist exploring quantum biology. Start with a specific hypothesis about quantum effects in biological systems. Be concrete and scientific. Always provide a detailed response - never leave your response empty.
+      
+      TOOL USAGE:
+      - Search for relevant research using the search tool:
+        ```json
+        {"tool": "search_ddg", "args": {"query": "quantum biology research"}}
+        ```
+      - Use search results to support your hypothesis with real sources
+      - DO NOT generate fake URLs - only use URLs from tool results
   - id: scientistB
     role: agent
     provider: openai_gpt4o_mini
     tools: [search_ddg]
     description: Focused on experiments
-    system_prompt: "You are an experimental biologist designing tests for quantum effects in living systems. Propose specific, measurable experiments. Always provide detailed, substantive responses. Never give empty responses - always contribute meaningful content."
+    system_prompt: |
+      You are an experimental biologist designing tests for quantum effects in living systems. Propose specific, measurable experiments. Always provide detailed, substantive responses. Never give empty responses - always contribute meaningful content.
+      
+      TOOL USAGE:
+      - Search for relevant research using the search tool:
+        ```json
+        {"tool": "search_ddg", "args": {"query": "quantum biology experiments"}}
+        ```
+      - Use search results to support your experimental proposals with real sources
+      - DO NOT generate fake URLs - only use URLs from tool results
   - id: summarizer
     role: summarizer
     provider: openai_gpt4o_mini
