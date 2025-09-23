@@ -7,11 +7,7 @@
 - [CLI Reference](CLI.md) - All commands and options
 - [Configuration Guide](CONFIG.md) - YAML preset format
 - [Architecture](ARCHITECTURE.md) - How the system works
-- [Tools](TOOLS.md) - Available integrations
-- [Providers](PROVIDERS.md) - LLM backends
 - [Persistence](PERSISTENCE.md) - Data storage format
-- [Recipes](RECIPES.md) - Common patterns
-- [Preset Tips](PRESET_TIPS.md) - Advanced configuration
 
 ## 🎯 Getting Started
 
