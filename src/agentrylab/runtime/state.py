@@ -54,6 +54,9 @@ class State:
 
         # Optional running summary for UI/CLI
         self.running_summary: Optional[str] = None
+        
+        # Store objective for checkpoint persistence
+        self.objective: Optional[str] = None
 
         # ---------------- Budgets / counters ----------------
         # Global totals across the whole run

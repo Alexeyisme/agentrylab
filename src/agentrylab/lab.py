@@ -84,13 +84,23 @@ class Lab:
 
         # State & engine
         self.state = State(thread_id=self.thread_id, cfg=cfg)
+        # Store objective in state for checkpoint persistence
+        objective = getattr(cfg, "objective", None)
+        if objective:
+            self.state.objective = objective
+        
         # Attempt to resume from checkpoint (best-effort; controlled by flag)
         if resume:
             try:
                 snapshot = self.store.load_checkpoint(self.thread_id)
             except Exception:
                 snapshot = None
-            if isinstance(snapshot, dict) and snapshot and "_pickled" not in snapshot:
+            if snapshot is None:
+                # Thread doesn't exist - this is an error if resume was explicitly requested
+                # Note: resume=True is the default, so we need to check if it was explicitly set
+                # For now, we'll allow creating new threads even with resume=True
+                pass
+            elif isinstance(snapshot, dict) and snapshot and "_pickled" not in snapshot:
                 protected = {"thread_id", "cfg"}
                 for k, v in snapshot.items():
                     if k in protected:
@@ -99,6 +109,11 @@ class Lab:
                         setattr(self.state, k, v)
                     except Exception:
                         pass
+                
+                # Restore objective from checkpoint if available
+                if hasattr(self.state, 'objective') and self.state.objective:
+                    setattr(cfg, "objective", self.state.objective)
+                
                 logging.getLogger(__name__).info(
                     "Resumed thread %s: iter=%s history_len=%s",
                     self.thread_id,

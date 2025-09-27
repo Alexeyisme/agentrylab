@@ -11,7 +11,7 @@ version: "1.0.0"                      # preset schema/version (free‑form; usef
 id: debateclub                         # unique room/config identifier (used in filenames/db)
 name: Debate Club                      # human‑friendly name (shown in UIs/logs)
 description: Oxford-style debate with evidence-first policy and comprehensive final summaries  # short description of the scenario
-objective: "Is ananas great on pizza?"  # optional seed topic (pinned when enabled)
+objective: ""  # user must provide objective via --objective parameter
 
 # === Global runtime and policy ===
 runtime:
