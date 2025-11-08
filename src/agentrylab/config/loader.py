@@ -122,9 +122,9 @@ class UserInputSpec(BaseModel):
     # Enum choices (applies when type == "enum")
     choices: Optional[List[str]] = None
     # Simple validation expression, e.g., "value >= min_price"
-    validate: Optional[str] = None
+    validation_expr: Optional[str] = Field(default=None, alias="validate")
 
-    model_config = dict(extra="allow")
+    model_config = dict(extra="allow", populate_by_name=True)
 
 
 # ----------------------------- Scheduler -----------------------------

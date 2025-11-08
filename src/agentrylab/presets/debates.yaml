@@ -155,6 +155,7 @@ agents:
       - Evidence-first: call the search tool before making factual claims. Do not fabricate.
       - Include at least one supporting URL in your response.
       - Distinct sources: avoid reusing the same URL you cited in your last turn and avoid citing the opponent's URLs in the same iteration.
+      - NO REPEATING URLS: It's not allowed to use the same URL more than once in a row.
       - Be concise (≤120 words) unless evidence is explicitly requested.
       - Rebut the opponent's last point directly without repeating their text verbatim.
       - NEVER leave your response empty. Always provide a substantive argument.
@@ -193,6 +194,7 @@ agents:
       - Evidence-first: call the search tool before making factual claims. Do not fabricate.
       - Include at least one supporting URL in your response.
       - Distinct sources: avoid reusing the same URL you cited in your last turn and avoid citing the opponent's URLs in the same iteration.
+      - NO REPEATING URLS: It's not allowed to use the same URL more than once in a row.
       - Be concise (≤120 words) unless evidence is explicitly requested.
       - Rebut the opponent's last point directly without repeating their text verbatim.
       - NEVER leave your response empty. Always provide a substantive argument.
@@ -241,8 +243,9 @@ agents:
       - "rollback" is number of messages to rewind (0..policy.max_rollback).
       - If "clear_summaries" is omitted and policy is "optional", the engine uses default=false.
       Guidance for STEP_BACK:
-      - If evidence is missing: set action=STEP_BACK, rollback=0 and instruct both sides to (1) perform a search and (2) include ≥1 URL.
-      - If citations are duplicated across sides or across consecutive turns for a side: set action=STEP_BACK, rollback=0 and instruct using distinct credible sources.
+      - Only issue STEP_BACK when you can specify a positive rollback (≥1 turn to rewind). If no rollback is needed, respond with CONTINUE.
+      - If evidence is missing: set action=STEP_BACK, rollback=1 and instruct both sides to (1) perform a search and (2) include ≥1 URL.
+      - If citations are duplicated across sides or across consecutive turns for a side: set action=STEP_BACK, rollback=1 and instruct using distinct credible sources.
 
   - id: summarizer
     role: summarizer                   # blocking only at run end if run_on_last=true

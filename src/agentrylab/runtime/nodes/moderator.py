@@ -48,6 +48,12 @@ class ModeratorNode(NodeBase):
         if "action" not in payload or payload.get("action") not in (CONTINUE, STOP, STEP_BACK):
             payload["action"] = CONTINUE
 
+        # Enforce positive rollback semantics: STEP_BACK must include rollback >= 1,
+        # otherwise downgrade to CONTINUE to avoid spurious control signals.
+        if payload["action"] == STEP_BACK and payload.get("rollback", 0) <= 0:
+            payload["action"] = CONTINUE
+            payload["rollback"] = 0
+
         # Actions for the engine to interpret
         actions = {
             "type": payload.get("action"),

@@ -273,7 +273,9 @@ def run_cmd(
                     raise typer.BadParameter(f"{key} must be one of: {', '.join(map(str, choices))}")
 
             # Simple validate expression
-            expr = s.get("validate")
+            expr = s.get("validation_expr")
+            if expr is None:
+                expr = s.get("validate")
             if expr:
                 # Provide a minimal safe eval environment
                 env = {"value": val}
