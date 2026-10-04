@@ -615,6 +615,22 @@ def say_cmd(
     typer.echo(f"Appended user message to thread '{thread_id}' as {user_id}.")
 
 
+@app.command("serve")
+def serve_cmd(
+    host: str = typer.Option("127.0.0.1", help="Bind address"),
+    port: int = typer.Option(8000, help="Port"),
+    reload: bool = typer.Option(False, "--reload", help="Auto-reload on code changes (dev)"),
+) -> None:
+    """Start the Room web app: android personas chatting on a live stage."""
+    _load_env()
+    try:
+        from agentrylab.room.server import serve
+    except ImportError as e:  # pragma: no cover - depends on optional extra
+        typer.echo(f"The web server needs the 'web' extra: pip install 'agentrylab[web]' ({e})", err=True)
+        raise typer.Exit(code=1)
+    serve(host, port, reload=reload)
+
+
 def main() -> None:  # pragma: no cover
     app()
 

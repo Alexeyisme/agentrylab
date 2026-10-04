@@ -63,3 +63,7 @@ uv.lock
 setup_github.sh
 setup_github_about.py
 github_setup_instructions.md
+# ----- Web UI -----
+web/node_modules/
+web/dist/
+src/agentrylab/room/static/
