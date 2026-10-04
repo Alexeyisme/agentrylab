@@ -1,6 +1,8 @@
-import { motion } from "motion/react";
-import { useEffect, useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
+import { useEffect, useRef, useState } from "react";
 import { useRoom } from "../store";
+import BrainBadge from "./BrainBadge";
+import { RoomsMenu } from "./RoomsMenu";
 
 export default function TopBar({ onAdd }: { onAdd: () => void }) {
   const topic = useRoom((s) => s.topic);
@@ -8,7 +10,6 @@ export default function TopBar({ onAdd }: { onAdd: () => void }) {
   const speed = useRoom((s) => s.speed);
   const turn = useRoom((s) => s.turn);
   const connected = useRoom((s) => s.connected);
-  const provider = useRoom((s) => s.provider);
   const personas = useRoom((s) => s.personas);
   const catalog = useRoom((s) => s.catalog);
   const control = useRoom((s) => s.control);
@@ -121,16 +122,7 @@ export default function TopBar({ onAdd }: { onAdd: () => void }) {
       {/* status */}
       <div className="hidden items-center gap-3 pl-1 lg:flex">
         <span className="font-mono text-[10.5px] text-fog-400">turn {turn}</span>
-        {provider && (
-          <span
-            className={`rounded-full border px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider ${
-              provider.demo ? "border-amber-400/40 bg-amber-400/10 text-amber-300" : "border-mint-400/40 bg-emerald-400/10 text-emerald-300"
-            }`}
-            title={provider.demo ? "No API key configured: personas use the offline mock brain. Set OPENAI_API_KEY for real conversations." : `Powered by ${provider.kind}`}
-          >
-            {provider.demo ? "demo brain" : provider.model}
-          </span>
-        )}
+        <BrainBadge />
         <motion.span
           className="block h-2 w-2 rounded-full"
           style={{ background: connected ? "#34d399" : "#fb7185" }}
@@ -139,6 +131,91 @@ export default function TopBar({ onAdd }: { onAdd: () => void }) {
           title={connected ? "Live" : "Reconnecting…"}
         />
       </div>
+
+      <RoomsMenu />
+      <UserMenu />
     </header>
+  );
+}
+
+
+function UserMenu() {
+  const me = useRoom((s) => s.me);
+  const openModal = useRoom((s) => s.openModal);
+  const logout = useRoom((s) => s.logout);
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => ref.current && !ref.current.contains(e.target as Node) && setOpen(false);
+    window.addEventListener("mousedown", onDown);
+    return () => window.removeEventListener("mousedown", onDown);
+  }, [open]);
+
+  if (!me?.user) {
+    return (
+      <button onClick={() => openModal("auth")} className="h-10 rounded-xl border border-white/10 bg-white/5 px-3.5 text-sm font-medium text-fog-100 transition hover:bg-white/10">
+        Sign in
+      </button>
+    );
+  }
+  const initial = me.user.email[0]?.toUpperCase() ?? "?";
+  const keyCount = me.keys.filter((k) => k.available).length;
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        title={me.user.email}
+        className="grid h-10 w-10 place-items-center rounded-full border border-cyan-400/40 bg-cyan-400/15 font-semibold text-cyan-200 transition hover:bg-cyan-400/25"
+      >
+        {initial}
+        {!me.vault_unlocked && me.keys.length > 0 && <span className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full border-2 border-ink-900 bg-amber-400" title="Vault locked" />}
+      </button>
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: -6, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -6, scale: 0.98 }}
+            className="glass absolute right-0 top-12 z-40 w-64 rounded-2xl bg-ink-900/95 p-2 text-sm"
+          >
+            <div className="truncate px-3 py-2 text-[12px] text-fog-400">{me.user.email}</div>
+            <button
+              onClick={() => {
+                setOpen(false);
+                openModal("keys");
+              }}
+              className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left hover:bg-white/5"
+            >
+              <span>Brains & keys</span>
+              <span className={`font-mono text-[10px] uppercase ${me.vault_unlocked ? "text-fog-400" : "text-amber-300"}`}>
+                {me.vault_unlocked ? `${keyCount} key${keyCount === 1 ? "" : "s"}` : "locked"}
+              </span>
+            </button>
+            <button
+              onClick={() => {
+                setOpen(false);
+                openModal("newRoom");
+              }}
+              className="w-full rounded-xl px-3 py-2 text-left hover:bg-white/5"
+            >
+              New private room
+            </button>
+            <div className="mt-1 border-t border-white/5 pt-1">
+              <button
+                onClick={() => {
+                  setOpen(false);
+                  void logout();
+                }}
+                className="w-full rounded-xl px-3 py-2 text-left text-rose-200 hover:bg-rose-500/10"
+              >
+                Sign out &amp; wipe keys
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }

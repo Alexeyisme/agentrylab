@@ -12,6 +12,12 @@ All notable changes to this project will be documented in this file.
 - **New `web/` frontend**: Vite + React 19 + TypeScript + Tailwind v4 + Motion + Zustand, built in CI
 - New optional extra `agentrylab[web]`; docs in `src/agentrylab/docs/ROOM.md`
 
+### 🔐 Accounts and bring-your-own-key vault
+- **Email + password accounts** (scrypt, rate-limited login, HttpOnly session cookies)
+- **Key vault** for OpenAI, Anthropic, DeepSeek and xAI: keys live in server memory only and are wiped on sign-out, "forget", or restart; opt-in "remember" stores them AES-256-GCM encrypted under a password-derived key
+- **Private rooms** per user that run on the owner's keys; brain (provider + model) switchable per room; rooms pause with a clear message when a key is missing or failing
+- New `AnthropicProvider` (official SDK) and OpenAI-compatible DeepSeek/xAI wiring
+
 ## [0.1.7] - 2025-01-27
 ### 🎭 Complete Telegram API Implementation
 - **Full Telegram API**: Complete async implementation with event streaming

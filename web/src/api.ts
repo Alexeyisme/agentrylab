@@ -1,4 +1,4 @@
-import type { Avatar, Catalog, Message, Persona, RoomSnapshot } from "./types";
+import type { Avatar, Brain, Catalog, Me, Message, Persona, RoomListItem, RoomSnapshot } from "./types";
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, {
@@ -22,8 +22,23 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
 export const api = {
   catalog: () => request<Catalog>("/api/catalog"),
   room: (id: string) => request<RoomSnapshot>(`/api/rooms/${encodeURIComponent(id)}`),
-  createRoom: (id: string, topic?: string) =>
-    request<RoomSnapshot>("/api/rooms", { method: "POST", body: JSON.stringify({ id, topic }) }),
+  rooms: () => request<RoomListItem[]>("/api/rooms"),
+  createRoom: (body: { id?: string; topic?: string; brain?: Brain }) =>
+    request<RoomSnapshot>("/api/rooms", { method: "POST", body: JSON.stringify(body) }),
+  deleteRoom: (id: string) => request<void>(`/api/rooms/${encodeURIComponent(id)}`, { method: "DELETE" }),
+
+  // ---- auth & keys
+  me: () => request<Me>("/api/auth/me"),
+  register: (email: string, password: string) =>
+    request<Me>("/api/auth/register", { method: "POST", body: JSON.stringify({ email, password }) }),
+  login: (email: string, password: string) =>
+    request<Me>("/api/auth/login", { method: "POST", body: JSON.stringify({ email, password }) }),
+  logout: () => request<{ ok: boolean }>("/api/auth/logout", { method: "POST" }),
+  unlock: (password: string) => request<Me>("/api/auth/unlock", { method: "POST", body: JSON.stringify({ password }) }),
+  saveKey: (provider: string, key: string, remember: boolean) =>
+    request<Me>(`/api/auth/keys/${provider}`, { method: "PUT", body: JSON.stringify({ key, remember }) }),
+  removeKey: (provider: string) => request<Me>(`/api/auth/keys/${provider}`, { method: "DELETE" }),
+  forgetAllKeys: () => request<Me>("/api/auth/keys", { method: "DELETE" }),
 
   addFromLibrary: (room: string, templateId: string) =>
     request<Persona>(`/api/rooms/${room}/personas`, {
@@ -47,6 +62,6 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ action }),
     }),
-  settings: (room: string, body: { topic?: string; speed?: number }) =>
+  settings: (room: string, body: { topic?: string; speed?: number; brain?: Brain }) =>
     request<RoomSnapshot>(`/api/rooms/${room}`, { method: "PATCH", body: JSON.stringify(body) }),
 };

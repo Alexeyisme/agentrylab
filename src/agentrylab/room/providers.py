@@ -1,15 +1,19 @@
 """Provider selection for rooms, plus an offline mock brain.
 
-The room reuses the lab's provider adapters. Which one is used is decided by
-environment variables so the website works out of the box:
+Two kinds of brains exist:
+
+* the **server default** (``build_provider``), chosen by environment variables
+  and used by the public stage; and
+* **user brains** (``build_user_provider``), created per room from the owner's
+  own API key held in the in-memory vault (see ``auth.py``).
+
+Environment:
 
   AGENTRYLAB_ROOM_PROVIDER  auto | openai | ollama | mock      (default: auto)
   AGENTRYLAB_ROOM_MODEL     model name for openai/ollama      (optional)
   OPENAI_API_KEY            picked up in auto mode
   OLLAMA_BASE_URL           used by the ollama adapter
-
-``auto`` picks OpenAI when an API key is present and falls back to the mock
-otherwise, so a fresh clone shows a lively room without any configuration.
+  AGENTRYLAB_MOCK_LATENCY   seconds of fake "thinking" in the mock brain
 """
 
 from __future__ import annotations
@@ -24,6 +28,57 @@ from typing import Any, Dict, List, Optional
 from agentrylab.runtime.providers.base import LLMProvider, Message
 
 MOCK_MODEL = "mock-brain-1"
+
+# Providers a user can bring their own key for. ``base_url`` marks the
+# OpenAI-compatible ones that reuse the OpenAI adapter.
+KEY_PROVIDERS: Dict[str, Dict[str, Any]] = {
+    "openai": dict(
+        id="openai",
+        label="OpenAI",
+        default_model="gpt-4o-mini",
+        models=["gpt-4o-mini", "gpt-4o", "gpt-4.1-mini", "gpt-4.1"],
+        key_hint="sk-…",
+        docs="https://platform.openai.com/api-keys",
+    ),
+    "anthropic": dict(
+        id="anthropic",
+        label="Anthropic",
+        default_model="claude-opus-5-5",
+        models=["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-4-5"],
+        key_hint="sk-ant-…",
+        docs="https://platform.claude.com/settings/keys",
+    ),
+    "deepseek": dict(
+        id="deepseek",
+        label="DeepSeek",
+        default_model="deepseek-chat",
+        models=["deepseek-chat", "deepseek-reasoner"],
+        key_hint="sk-…",
+        docs="https://platform.deepseek.com/api_keys",
+        base_url="https://api.deepseek.com/v1",
+    ),
+    "xai": dict(
+        id="xai",
+        label="xAI",
+        default_model="grok-4",
+        models=["grok-4", "grok-3", "grok-3-mini"],
+        key_hint="xai-…",
+        docs="https://console.x.ai",
+        base_url="https://api.x.ai/v1",
+    ),
+}
+
+# Brains that need no key.
+FREE_PROVIDERS: Dict[str, Dict[str, Any]] = {
+    "mock": dict(id="mock", label="Demo brain (offline)", default_model=MOCK_MODEL, models=[MOCK_MODEL]),
+    "ollama": dict(id="ollama", label="Ollama (local)", default_model="llama3", models=["llama3", "llama3.1", "mistral", "qwen2.5"]),
+}
+
+ALL_PROVIDERS: Dict[str, Dict[str, Any]] = {**KEY_PROVIDERS, **FREE_PROVIDERS}
+
+
+class BrainUnavailable(RuntimeError):
+    """Raised when a room's brain cannot be built (typically: no key in the vault)."""
 
 
 class MockProvider(LLMProvider):
@@ -146,6 +201,8 @@ def _last_line(transcript: str, *, exclude: str) -> tuple[str, str]:
 
 
 # ----------------------------------------------------------------------------
+# Server default brain (environment-driven)
+# ----------------------------------------------------------------------------
 def resolve_provider_kind() -> str:
     kind = (os.getenv("AGENTRYLAB_ROOM_PROVIDER") or "auto").strip().lower()
     if kind == "auto":
@@ -159,26 +216,66 @@ def build_provider(kind: Optional[str] = None, *, temperature: Optional[float] =
     kind = kind or resolve_provider_kind()
     model = os.getenv("AGENTRYLAB_ROOM_MODEL")
     if kind == "openai":
-        from agentrylab.runtime.providers.openai import OpenAIProvider
-
-        return OpenAIProvider(
-            model=model or "gpt-4o-mini",
-            api_key=os.getenv("OPENAI_API_KEY"),
-            temperature=temperature,
-            timeout=60,
-        )
+        return build_user_provider("openai", model, os.getenv("OPENAI_API_KEY"), temperature=temperature)
     if kind == "ollama":
-        from agentrylab.runtime.providers.ollama import OllamaProvider
-
-        return OllamaProvider(model=model or "llama3", temperature=temperature, timeout=120)
+        return build_user_provider("ollama", model, None, temperature=temperature)
     return MockProvider(temperature=temperature)
 
 
 def describe_provider(kind: Optional[str] = None) -> Dict[str, Any]:
     kind = kind or resolve_provider_kind()
-    model = os.getenv("AGENTRYLAB_ROOM_MODEL") or {
-        "openai": "gpt-4o-mini",
-        "ollama": "llama3",
-        "mock": MOCK_MODEL,
-    }[kind]
+    model = os.getenv("AGENTRYLAB_ROOM_MODEL") or ALL_PROVIDERS[kind]["default_model"]
     return {"kind": kind, "model": model, "demo": kind == "mock"}
+
+
+# ----------------------------------------------------------------------------
+# User brains (bring-your-own-key)
+# ----------------------------------------------------------------------------
+def build_user_provider(
+    kind: str,
+    model: Optional[str],
+    api_key: Optional[str],
+    *,
+    temperature: Optional[float] = None,
+) -> LLMProvider:
+    """Build a provider for ``kind`` using ``api_key``.
+
+    Raises ``BrainUnavailable`` when a key is required but missing, so the room
+    can explain the problem instead of hammering a 401.
+    """
+    spec = ALL_PROVIDERS.get(kind)
+    if spec is None:
+        raise BrainUnavailable(f"unknown provider '{kind}'")
+    model = validate_model_name(model or spec["default_model"])
+    if kind == "mock":
+        return MockProvider(temperature=temperature)
+    if kind == "ollama":
+        from agentrylab.runtime.providers.ollama import OllamaProvider
+
+        return OllamaProvider(model=model, temperature=temperature, timeout=120)
+    if not api_key:
+        raise BrainUnavailable(f"No {spec['label']} API key in your vault. Add one under Brains & keys.")
+    if kind == "anthropic":
+        from agentrylab.runtime.providers.anthropic import AnthropicProvider
+
+        return AnthropicProvider(model=model, api_key=api_key, temperature=temperature, timeout=120)
+    from agentrylab.runtime.providers.openai import OpenAIProvider
+
+    return OpenAIProvider(
+        model=model,
+        api_key=api_key,
+        base_url=spec.get("base_url"),
+        temperature=temperature,
+        timeout=90,
+        vendor=spec["label"],
+    )
+
+
+_MODEL_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:\-/]{0,80}$")
+
+
+def validate_model_name(model: str) -> str:
+    model = (model or "").strip()
+    if not _MODEL_RE.match(model):
+        raise ValueError("model name contains unsupported characters")
+    return model

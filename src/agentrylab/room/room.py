@@ -10,13 +10,13 @@ import uuid
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Literal, Optional, Set
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from agentrylab.persistence.transcript.jsonl import JSONLTranscriptStore
 from agentrylab.runtime.providers.base import LLMProvider, Message
 
 from .personas import Persona, persona_from_template
-from .providers import build_provider, describe_provider
+from .providers import ALL_PROVIDERS, BrainUnavailable, build_provider, build_user_provider, describe_provider, validate_model_name
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +39,34 @@ class RoomMessage(BaseModel):
     content: str
 
 
-ProviderFactory = Callable[[Persona], LLMProvider]
+class Brain(BaseModel):
+    """Which model drives a room. ``server`` means the environment default."""
+
+    provider: str = "server"
+    model: Optional[str] = None
+
+    @field_validator("provider")
+    @classmethod
+    def _provider(cls, v: str) -> str:
+        v = (v or "server").strip().lower()
+        if v != "server" and v not in ALL_PROVIDERS:
+            raise ValueError(f"unknown provider '{v}'")
+        return v
+
+    @field_validator("model")
+    @classmethod
+    def _model(cls, v: Optional[str]) -> Optional[str]:
+        return validate_model_name(v) if v else None
+
+    def describe(self) -> Dict[str, Any]:
+        if self.provider == "server":
+            return describe_provider()
+        spec = ALL_PROVIDERS[self.provider]
+        return {"kind": self.provider, "model": self.model or spec["default_model"], "demo": self.provider == "mock"}
+
+
+ProviderFactory = Callable[[Persona, "Room"], LLMProvider]
+MAX_CONSECUTIVE_FAILURES = 3
 
 
 class Room:
@@ -57,9 +84,14 @@ class Room:
         speed: float = 3.0,
         provider_factory: Optional[ProviderFactory] = None,
         transcript_dir: Optional[Path] = None,
+        owner_id: Optional[str] = None,
+        brain: Optional[Brain] = None,
     ) -> None:
         self.id = room_id
         self.topic = topic
+        self.owner_id = owner_id
+        self.brain = brain or Brain()
+        self._failures = 0
         self.speed = _clamp_speed(speed)
         self.status: RoomStatus = "running"
         self.turn = 0
@@ -130,7 +162,9 @@ class Room:
             "speed": self.speed,
             "turn": self.turn,
             "thinking": self._thinking,
-            "provider": describe_provider(),
+            "owner_id": self.owner_id,
+            "brain": self.brain.model_dump(),
+            "provider": self.brain.describe(),
             "personas": [p.model_dump() for p in self.personas.values()],
             "messages": [m.model_dump() for m in self.messages[-200:]],
         }
@@ -191,6 +225,18 @@ class Room:
         self.topic = topic
         self._emit("topic", topic=topic)
         self._system(f"New topic: {topic}")
+
+    def set_brain(self, brain: Brain) -> None:
+        self.brain = brain
+        self.invalidate_providers()
+        self._failures = 0
+        info = brain.describe()
+        self._emit("brain", brain=brain.model_dump(), provider=info)
+        self._system(f"Brain switched to {info['model']}.")
+
+    def invalidate_providers(self) -> None:
+        """Drop cached providers (e.g. after the owner changed or forgot a key)."""
+        self._providers.clear()
 
     def set_speed(self, speed: float) -> None:
         self.speed = _clamp_speed(speed)
@@ -256,20 +302,32 @@ class Room:
         self._thinking = speaker.id
         self._emit("thinking", persona_id=speaker.id)
         messages = self._compose(speaker)
-        provider = self._provider_for(speaker)
         started = time.time()
         try:
+            provider = self._provider_for(speaker)
             raw = await asyncio.to_thread(provider.chat, messages, temperature=speaker.temperature)
             text = _clean_reply(str(raw.get("content", "")), speaker.name, self.personas)
+        except BrainUnavailable as e:
+            self._thinking = None
+            self._emit("error", persona_id=speaker.id, error=str(e))
+            self._system(f"Paused: {e}")
+            self.pause()
+            return
         except Exception as e:
             logger.warning("persona %s failed to speak: %s", speaker.id, e)
             self._thinking = None
-            self._emit("error", persona_id=speaker.id, error=f"{type(e).__name__}: {e}")
-            self._system(f"{speaker.name} glitched: {type(e).__name__}.")
+            self._failures += 1
+            detail = _short_error(e)
+            self._emit("error", persona_id=speaker.id, error=detail)
+            self._system(f"{speaker.name} glitched: {detail}")
+            if self._failures >= MAX_CONSECUTIVE_FAILURES:
+                self._system(f"Paused after {self._failures} failures in a row. Check the brain and keys, then press play.")
+                self.pause()
             return
         finally:
             if self._thinking == speaker.id:
                 self._thinking = None
+        self._failures = 0
         if speaker.id not in self.personas:
             return  # removed while thinking
         if not text:
@@ -311,7 +369,7 @@ class Room:
     def _provider_for(self, persona: Persona) -> LLMProvider:
         prov = self._providers.get(persona.id)
         if prov is None:
-            prov = self._provider_factory(persona)
+            prov = self._provider_factory(persona, self)
             self._providers[persona.id] = prov
         return prov
 
@@ -379,6 +437,7 @@ class RoomManager:
     DEFAULT_ROOM = "main"
     DEFAULT_CAST = ("comedian", "philosopher", "skeptic")
     DEFAULT_TOPIC = "Is a hot dog a sandwich?"
+    MAX_ROOMS_PER_USER = 5
 
     def __init__(
         self,
@@ -392,16 +451,28 @@ class RoomManager:
         self._transcript_dir = transcript_dir
         self._seed_default = seed_default
 
-    def create(self, room_id: Optional[str] = None, *, topic: Optional[str] = None, speed: float = 3.0) -> Room:
+    def create(
+        self,
+        room_id: Optional[str] = None,
+        *,
+        topic: Optional[str] = None,
+        speed: float = 3.0,
+        owner_id: Optional[str] = None,
+        brain: Optional[Brain] = None,
+    ) -> Room:
         rid = _slug(room_id) or f"room-{uuid.uuid4().hex[:6]}"
         if rid in self.rooms:
             raise ValueError(f"room '{rid}' already exists")
+        if owner_id and sum(1 for r in self.rooms.values() if r.owner_id == owner_id) >= self.MAX_ROOMS_PER_USER:
+            raise ValueError(f"you already have {self.MAX_ROOMS_PER_USER} rooms; close one first")
         room = Room(
             rid,
             topic=topic or self.DEFAULT_TOPIC,
             speed=speed,
             provider_factory=self._provider_factory,
             transcript_dir=self._transcript_dir,
+            owner_id=owner_id,
+            brain=brain,
         )
         self.rooms[rid] = room
         room.start()
@@ -409,6 +480,16 @@ class RoomManager:
 
     def get(self, room_id: str) -> Optional[Room]:
         return self.rooms.get(room_id)
+
+    def visible_to(self, user_id: Optional[str]) -> List[Room]:
+        """Public rooms plus the user's own."""
+        return [r for r in self.rooms.values() if r.owner_id is None or r.owner_id == user_id]
+
+    def invalidate_user(self, user_id: str) -> None:
+        """Forget cached providers for a user's rooms (their keys changed or vanished)."""
+        for r in self.rooms.values():
+            if r.owner_id == user_id:
+                r.invalidate_providers()
 
     def get_or_create_default(self) -> Room:
         room = self.rooms.get(self.DEFAULT_ROOM)
@@ -432,8 +513,17 @@ class RoomManager:
 
 
 # ---------------------------------------------------------------------------
-def _default_provider_factory(persona: Persona) -> LLMProvider:
-    return build_provider(temperature=persona.temperature)
+def _default_provider_factory(persona: Persona, room: Room) -> LLMProvider:
+    """Keyless factory: server default, or free brains; key providers need the server's vault."""
+    brain = room.brain
+    if brain.provider == "server":
+        return build_provider(temperature=persona.temperature)
+    return build_user_provider(brain.provider, brain.model, None, temperature=persona.temperature)
+
+
+def _short_error(e: Exception) -> str:
+    text = str(e).strip().splitlines()[0] if str(e).strip() else type(e).__name__
+    return text[:160]
 
 
 def _clamp_speed(v: float) -> float:

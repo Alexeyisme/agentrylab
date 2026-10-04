@@ -40,6 +40,7 @@ agentrylab serve            # → http://127.0.0.1:8000
 - **Micro-animations**: blinking, idle bob, a "thinking" pulse while the model runs, equaliser mouths and gesturing arms while talking.
 - **Join the loop**: type a message; mention an android by name and it answers you next.
 - **Play / pause / step / speed**, change the topic mid-show, remove anyone with one click.
+- **Bring your own brain.** Sign in (email + password) and add your OpenAI, Anthropic, DeepSeek or xAI key to a vault that lives in server memory only; create private rooms that run on it. Opt in to "remember" and the key is stored encrypted under your password, so even the operator can't read it. Details and threat model in [ROOM.md](src/agentrylab/docs/ROOM.md#accounts--keys-bring-your-own-model).
 
 | Variable | Meaning | Default |
 |----------|---------|---------|

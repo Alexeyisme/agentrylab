@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 import asyncio
+import os
 from typing import Any, Dict, List
+
+os.environ.setdefault("AGENTRYLAB_SCRYPT_N", str(2**12))  # fast hashing for tests
 
 import pytest
 from fastapi.testclient import TestClient
 
 from agentrylab.room import PERSONA_LIBRARY, Persona, Room, RoomManager
+from agentrylab.room.auth import AuthStore, KeyVault
 from agentrylab.room.personas import persona_from_template
 from agentrylab.room.providers import MockProvider
 from agentrylab.room.room import RoomMessage, _addressed_persona, _clean_reply
@@ -27,7 +31,7 @@ class EchoProvider(MockProvider):
         return {"content": f"{name}: hello from {name}"}
 
 
-def echo_factory(_: Persona) -> EchoProvider:
+def echo_factory(_p: Persona, _r: Room) -> EchoProvider:
     return EchoProvider()
 
 
@@ -185,7 +189,7 @@ async def test_room_survives_provider_errors():
         def _send_chat(self, messages, *, tools=None, **kwargs):  # type: ignore[override]
             raise RuntimeError("fried circuit")
 
-    room = Room("b", speed=0.5, provider_factory=lambda _p: Boom())
+    room = Room("b", speed=0.5, provider_factory=lambda _p, _r: Boom())
     q = room.subscribe()
     room.start()
     try:
@@ -194,7 +198,7 @@ async def test_room_survives_provider_errors():
     finally:
         await room.close()
     assert any(m.kind == "system" and "glitched" in m.content for m in room.messages)
-    assert room.status == "running"
+    assert room.status == "running"  # one failure does not pause the room
 
 
 def test_speed_is_clamped():
@@ -208,7 +212,7 @@ def test_speed_is_clamped():
 @pytest.fixture()
 def client(tmp_path):
     mgr = RoomManager(provider_factory=echo_factory, transcript_dir=tmp_path, seed_default=False)
-    app = create_app(manager=mgr, serve_ui=False)
+    app = create_app(manager=mgr, serve_ui=False, auth_store=AuthStore(tmp_path / "auth.db"), vault=KeyVault())
     with TestClient(app) as c:
         yield c
 
@@ -251,8 +255,11 @@ def test_api_room_lifecycle(client):
     assert client.delete(f"/api/rooms/main/personas/{pid}").status_code == 404
     assert client.delete("/api/rooms/main").status_code == 400
 
+    # creating rooms needs an account; they run on the mock brain when no key is stored
+    assert client.post("/api/rooms", json={"id": "Side Room!", "topic": "x"}).status_code == 401
+    client.post("/api/auth/register", json={"email": "r@example.com", "password": "password1"})
     r = client.post("/api/rooms", json={"id": "Side Room!", "topic": "x"})
-    assert r.status_code == 201 and r.json()["id"] == "side-room"
+    assert r.status_code == 201 and r.json()["id"] == "side-room" and r.json()["brain"]["provider"] == "mock"
     assert client.post("/api/rooms", json={"id": "side-room"}).status_code == 409
     assert len(client.get("/api/rooms").json()) == 2
     assert client.delete("/api/rooms/side-room").status_code == 204

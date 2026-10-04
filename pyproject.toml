@@ -52,11 +52,15 @@ web = [
   "fastapi>=0.115",
   "uvicorn[standard]>=0.30",
   "websockets>=12",
+  "cryptography>=42",
+  "anthropic>=1.0",
 ]
 dev = [
   "fastapi>=0.115",
   "uvicorn[standard]>=0.30",
   "websockets>=12",
+  "cryptography>=42",
+  "anthropic>=1.0",
   "pytest>=8.3.2",
   "pytest-asyncio>=0.24.0",
   "pytest-cov>=5.0.0",

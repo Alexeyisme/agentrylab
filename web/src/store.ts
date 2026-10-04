@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { api } from "./api";
-import type { Catalog, Message, Persona, ProviderInfo, RoomEvent, RoomSnapshot, RoomStatus } from "./types";
+import type { Brain, Catalog, Me, Message, Persona, ProviderInfo, RoomEvent, RoomListItem, RoomSnapshot, RoomStatus } from "./types";
 
 export interface Toast {
   id: number;
@@ -14,16 +14,23 @@ interface Speaking {
   startedAt: number;
 }
 
+export type Modal = "add" | "auth" | "keys" | "newRoom" | null;
+
 interface RoomState {
   roomId: string;
   connected: boolean;
   catalog: Catalog | null;
   provider: ProviderInfo | null;
+  me: Me | null;
+  rooms: RoomListItem[];
+  modal: Modal;
 
   topic: string;
   status: RoomStatus;
   speed: number;
   turn: number;
+  ownerId: string | null;
+  brain: Brain;
   personas: Persona[];
   messages: Message[];
   thinking: string | null;
@@ -32,6 +39,7 @@ interface RoomState {
 
   userName: string;
   setUserName: (n: string) => void;
+  openModal: (m: Modal) => void;
 
   init: () => Promise<void>;
   applyEvent: (e: RoomEvent) => void;
@@ -46,9 +54,29 @@ interface RoomState {
   control: (action: "play" | "pause" | "step" | "clear") => Promise<void>;
   setTopic: (topic: string) => Promise<void>;
   setSpeed: (speed: number) => Promise<void>;
+  setBrain: (brain: Brain) => Promise<boolean>;
+
+  // auth & keys (errors are thrown so forms can show them inline)
+  refreshMe: () => Promise<void>;
+  register: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
+  logout: () => Promise<void>;
+  unlock: (password: string) => Promise<void>;
+  saveKey: (provider: string, key: string, remember: boolean) => Promise<void>;
+  removeKey: (provider: string) => Promise<void>;
+  forgetAllKeys: () => Promise<void>;
+
+  // rooms
+  loadRooms: () => Promise<void>;
+  createRoom: (body: { id?: string; topic?: string; brain?: Brain }) => Promise<string>;
+  deleteRoom: (id: string) => Promise<void>;
 }
 
 const roomFromUrl = () => new URLSearchParams(location.search).get("room")?.trim() || "main";
+
+export function goToRoom(id: string) {
+  location.href = id === "main" ? location.pathname : `${location.pathname}?room=${encodeURIComponent(id)}`;
+}
 
 let toastSeq = 0;
 let socket: WebSocket | null = null;
@@ -64,11 +92,16 @@ export const useRoom = create<RoomState>((set, get) => ({
   connected: false,
   catalog: null,
   provider: null,
+  me: null,
+  rooms: [],
+  modal: null,
 
   topic: "",
   status: "running",
   speed: 3,
   turn: 0,
+  ownerId: null,
+  brain: { provider: "server", model: null },
   personas: [],
   messages: [],
   thinking: null,
@@ -80,24 +113,25 @@ export const useRoom = create<RoomState>((set, get) => ({
     localStorage.setItem("agentrylab.name", n);
     set({ userName: n });
   },
+  openModal: (m) => set({ modal: m }),
 
   init: async () => {
     const { roomId } = get();
     try {
-      const catalog = await api.catalog();
-      set({ catalog, provider: catalog.provider });
+      const [catalog, me] = await Promise.all([api.catalog(), api.me()]);
+      set({ catalog, provider: catalog.provider, me });
+      if (me.user && !get().userName) get().setUserName(me.user.email.split("@")[0]);
     } catch (e) {
-      get().toast(`Could not load catalog: ${(e as Error).message}`, "error");
+      get().toast(`Could not reach the server: ${(e as Error).message}`, "error");
     }
+    void get().loadRooms();
     if (roomId !== "main") {
       try {
         await api.room(roomId);
-      } catch {
-        try {
-          await api.createRoom(roomId);
-        } catch (e) {
-          get().toast(`Could not open room '${roomId}': ${(e as Error).message}`, "error");
-        }
+      } catch (e) {
+        get().toast(`Could not open room '${roomId}': ${(e as Error).message}`, "error");
+        window.setTimeout(() => goToRoom("main"), 1800);
+        return;
       }
     }
     connect(roomId, get().applyEvent, (connected) => set({ connected }));
@@ -137,6 +171,9 @@ export const useRoom = create<RoomState>((set, get) => ({
       case "topic":
         set({ topic: e.topic });
         break;
+      case "brain":
+        set({ brain: e.brain, provider: e.provider });
+        break;
       case "cleared":
         set({ messages: [], speaking: null, thinking: null, turn: 0 });
         break;
@@ -167,6 +204,63 @@ export const useRoom = create<RoomState>((set, get) => ({
     set({ speed });
     await guard(get, () => api.settings(get().roomId, { speed }));
   },
+  setBrain: async (brain) => {
+    try {
+      await api.settings(get().roomId, { brain });
+      return true;
+    } catch (e) {
+      get().toast((e as Error).message, "error");
+      return false;
+    }
+  },
+
+  refreshMe: async () => {
+    try {
+      set({ me: await api.me() });
+    } catch {
+      /* offline */
+    }
+  },
+  register: async (email, password) => {
+    const me = await api.register(email, password);
+    set({ me });
+    if (!get().userName) get().setUserName(email.split("@")[0]);
+    void get().loadRooms();
+  },
+  login: async (email, password) => {
+    const me = await api.login(email, password);
+    set({ me });
+    if (!get().userName) get().setUserName(email.split("@")[0]);
+    void get().loadRooms();
+  },
+  logout: async () => {
+    await guard(get, () => api.logout());
+    set({ me: { user: null, keys: [], vault_unlocked: false, signup_enabled: get().me?.signup_enabled ?? true } });
+    get().toast("Signed out. Your API keys were wiped from the server's memory.");
+    if (get().ownerId) goToRoom("main");
+    else void get().loadRooms();
+  },
+  unlock: async (password) => set({ me: await api.unlock(password) }),
+  saveKey: async (provider, key, remember) => set({ me: await api.saveKey(provider, key, remember) }),
+  removeKey: async (provider) => set({ me: await api.removeKey(provider) }),
+  forgetAllKeys: async () => set({ me: await api.forgetAllKeys() }),
+
+  loadRooms: async () => {
+    try {
+      set({ rooms: await api.rooms() });
+    } catch {
+      /* ignore */
+    }
+  },
+  createRoom: async (body) => {
+    const snap = await api.createRoom(body);
+    return snap.id;
+  },
+  deleteRoom: async (id) => {
+    await guard(get, () => api.deleteRoom(id));
+    if (get().roomId === id) goToRoom("main");
+    else void get().loadRooms();
+  },
 }));
 
 async function guard(get: () => RoomState, fn: () => Promise<unknown>) {
@@ -183,6 +277,8 @@ function fromSnapshot(r: RoomSnapshot) {
     status: r.status,
     speed: r.speed,
     turn: r.turn,
+    ownerId: r.owner_id,
+    brain: r.brain,
     personas: r.personas,
     messages: r.messages,
     thinking: r.thinking,
@@ -206,19 +302,15 @@ function connect(roomId: string, onEvent: (e: RoomEvent) => void, onConnected: (
       /* ignore malformed frames */
     }
   };
-  ws.onclose = () => {
+  ws.onclose = (ev) => {
     onConnected(false);
+    if (ev.code === 4003 || ev.code === 4004) {
+      // Not ours / gone: bounce to the public stage.
+      window.setTimeout(() => goToRoom("main"), 1200);
+      return;
+    }
     window.clearTimeout(reconnectTimer);
     reconnectTimer = window.setTimeout(() => connect(roomId, onEvent, onConnected), 1500);
   };
   ws.onerror = () => ws.close();
-}
-
-/** Send a lightweight command straight over the socket (falls back to REST in the store). */
-export function wsSend(payload: Record<string, unknown>): boolean {
-  if (socket && socket.readyState === WebSocket.OPEN) {
-    socket.send(JSON.stringify(payload));
-    return true;
-  }
-  return false;
 }
