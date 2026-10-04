@@ -18,6 +18,7 @@ import hashlib
 import os
 import random
 import re
+import time
 from typing import Any, Dict, List, Optional
 
 from agentrylab.runtime.providers.base import LLMProvider, Message
@@ -31,40 +32,51 @@ class MockProvider(LLMProvider):
     It reads the persona name, voice words and the last line of the transcript
     from the messages the room composes, then stitches a reply from templates.
     Good enough to make the stage feel alive while you decide on a real model.
+    A small artificial latency keeps the "thinking" animation visible.
     """
 
     _OPENERS = [
-        "Hold on, {last_name} said '{snippet}' and that's exactly my point.",
+        "{last_name} just said '{snippet}', and honestly that proves my point.",
         "Interesting take, {last_name}.",
-        "Okay, but consider this:",
-        "I've been thinking about {topic}.",
-        "Nobody asked, but {topic} deserves a second look.",
-        "{last_name}, you're close.",
+        "Hold that thought.",
+        "I've been chewing on '{topic}' all day.",
+        "Nobody asked, but '{topic}' deserves a second look.",
+        "{last_name}, you're closer than you think.",
         "Let me put it this way.",
-        "Picture it:",
+        "Picture it.",
+        "See, this is where {last_name} and I part ways.",
+        "Fine, I'll say it.",
+        "Here's the thing about '{topic}'.",
     ]
-    _MIDDLES = [
-        "it all comes down to {voice1}",
-        "this is really a question of {voice1} versus {voice2}",
-        "you can't talk about {topic} without {voice1}",
-        "the {voice1} is doing all the heavy lifting here",
-        "{voice2}, obviously",
-        "I'd trade the whole thing for a little {voice1}",
+    _CORES = [
+        "It all comes down to {voice1}.",
+        "This is really a question of {voice1} versus {voice2}.",
+        "You can't talk about '{topic}' without talking about {voice1}.",
+        "{voice1} is doing all the heavy lifting here.",
+        "{voice2}, obviously.",
+        "I'd trade the whole argument for a little {voice1}.",
+        "Strip away the noise and what's left is {voice1}.",
+        "Every version of this ends in {voice2}.",
     ]
     _CLOSERS = [
-        "and that, friends, is {voice2}.",
-        "which is why I keep saying: {voice1}.",
-        "so let's not pretend otherwise.",
-        "ask me how I know.",
+        "And that, friends, is {voice2}.",
+        "Which is why I keep saying: {voice1}.",
+        "So let's not pretend otherwise.",
+        "Ask me how I know.",
         "I rest my case. For now.",
-        "someone write that down.",
-        "and yes, I will be taking questions.",
+        "Someone write that down.",
+        "I will be taking questions.",
+        "Change my mind, {last_name}.",
+        "Anyway. Who's next?",
     ]
 
-    def __init__(self, *, model: str = MOCK_MODEL, **kwargs: Any) -> None:
+    def __init__(self, *, model: str = MOCK_MODEL, latency: Optional[float] = None, **kwargs: Any) -> None:
         kwargs.pop("api_key", None)
         super().__init__(model=model, **kwargs)
         self.retries = 0
+        if latency is None:
+            latency = float(os.getenv("AGENTRYLAB_MOCK_LATENCY", "1.1"))
+        self.latency = max(0.0, latency)
 
     def _send_chat(
         self,
@@ -74,8 +86,8 @@ class MockProvider(LLMProvider):
         **kwargs: Any,
     ) -> Dict[str, Any]:
         system = next((m.get("content", "") for m in messages if m.get("role") == "system"), "")
-        name = _between(system, "You are speaking as ", ".") or "Unit"
-        topic = _between(system, "Topic: ", "\n") or "all of this"
+        name = _between(system, "You are speaking as ", "\n") or "Unit"
+        topic = (_between(system, "Topic: ", "\n") or "all of this").strip().rstrip(".?!")
         voice = [v.strip() for v in (_between(system, "Voice: ", "\n") or "").split(",") if v.strip()]
         if not voice:
             voice = ["the vibe", "timing", "common sense"]
@@ -83,9 +95,10 @@ class MockProvider(LLMProvider):
         transcript = next(
             (m.get("content", "") for m in reversed(messages) if m.get("role") == "user"), ""
         )
+        transcript = transcript.split("\n\nNow ", 1)[0]
         last_name, snippet = _last_line(transcript, exclude=name)
 
-        seed_src = f"{name}|{transcript[-200:]}|{len(messages)}"
+        seed_src = f"{name}|{transcript[-240:]}"
         rng = random.Random(int(hashlib.sha1(seed_src.encode()).hexdigest()[:12], 16))
         v1, v2 = rng.sample(voice, 2) if len(voice) >= 2 else (voice[0], voice[0])
         ctx = {
@@ -95,13 +108,20 @@ class MockProvider(LLMProvider):
             "voice1": v1,
             "voice2": v2,
         }
-        parts = [rng.choice(self._OPENERS).format(**ctx)]
+        openers = self._OPENERS if last_name else [o for o in self._OPENERS if "{last_name}" not in o and "{snippet}" not in o]
+        parts = [rng.choice(openers)]
         if rng.random() < 0.85:
-            parts.append(rng.choice(self._MIDDLES).format(**ctx) + ",")
-        parts.append(rng.choice(self._CLOSERS).format(**ctx))
-        text = " ".join(parts)
-        text = re.sub(r",\s*([a-z])", lambda m: ", " + m.group(1), text)
-        return {"content": text[0].upper() + text[1:]}
+            parts.append(rng.choice(self._CORES))
+        if rng.random() < 0.8:
+            parts.append(rng.choice(self._CLOSERS))
+        sentences = [_cap(p.format(**ctx)) for p in parts]
+        if self.latency:
+            time.sleep(self.latency * (0.6 + 0.8 * rng.random()))
+        return {"content": " ".join(sentences)}
+
+
+def _cap(s: str) -> str:
+    return s[:1].upper() + s[1:] if s else s
 
 
 def _between(text: str, start: str, end: str) -> str:

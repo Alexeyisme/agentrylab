@@ -67,3 +67,4 @@ github_setup_instructions.md
 web/node_modules/
 web/dist/
 src/agentrylab/room/static/
+web/tsconfig.tsbuildinfo

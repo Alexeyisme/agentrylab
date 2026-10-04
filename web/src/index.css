@@ -1,0 +1,116 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  --color-ink-950: #07090f;
+  --color-ink-900: #0b0e17;
+  --color-ink-800: #11162233;
+  --color-shell-700: #1e2433;
+  --color-shell-600: #2d3548;
+  --color-shell-500: #3b4560;
+  --color-fog-400: #8b93a7;
+  --color-fog-300: #b6bdd0;
+  --color-fog-100: #eef1f8;
+
+  --shadow-glass: 0 1px 0 0 rgb(255 255 255 / 0.06) inset, 0 10px 30px -12px rgb(0 0 0 / 0.6);
+}
+
+:root {
+  color-scheme: dark;
+  --accent: #22d3ee;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-display);
+  color: var(--color-fog-100);
+  background: var(--color-ink-900);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+/* Animated SVG groups scale around their own centre. */
+.tb {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.glass {
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.05), rgb(255 255 255 / 0.02));
+  border: 1px solid rgb(255 255 255 / 0.08);
+  box-shadow: var(--shadow-glass);
+  backdrop-filter: blur(14px);
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 8px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: rgb(255 255 255 / 0.08);
+  border-radius: 999px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: rgb(255 255 255 / 0.16);
+}
+
+/* Stage floor: perspective grid that slowly drifts. */
+.stage-floor {
+  background-image:
+    linear-gradient(to top, rgb(34 211 238 / 0.08), transparent 60%),
+    repeating-linear-gradient(
+      to right,
+      rgb(255 255 255 / 0.05) 0 1px,
+      transparent 1px 72px
+    ),
+    repeating-linear-gradient(
+      to top,
+      rgb(255 255 255 / 0.06) 0 1px,
+      transparent 1px 44px
+    );
+  transform: perspective(600px) rotateX(58deg);
+  transform-origin: bottom center;
+  animation: floor-drift 14s linear infinite;
+  mask-image: linear-gradient(to top, black 30%, transparent 100%);
+}
+
+@keyframes floor-drift {
+  from {
+    background-position: 0 0, 0 0, 0 0;
+  }
+  to {
+    background-position: 0 0, 0 0, 0 44px;
+  }
+}
+
+.noise::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+}
+
+.caret::after {
+  content: "▍";
+  margin-left: 1px;
+  animation: blink-caret 0.9s steps(1) infinite;
+  color: var(--accent);
+}
+@keyframes blink-caret {
+  50% {
+    opacity: 0;
+  }
+}
+
+input[type="range"] {
+  accent-color: var(--accent);
+}

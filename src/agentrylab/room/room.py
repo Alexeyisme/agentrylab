@@ -73,6 +73,7 @@ class Room:
         self._rotation: List[str] = []
         self._last_speaker: Optional[str] = None
         self._thinking: Optional[str] = None
+        self._address_queue: List[str] = []  # personas a human called on by name
 
         self._subscribers: Set[asyncio.Queue] = set()
         self._wake = asyncio.Event()
@@ -156,6 +157,7 @@ class Room:
             raise KeyError(persona_id)
         self._providers.pop(persona_id, None)
         self._rotation = [pid for pid in self._rotation if pid != persona_id]
+        self._address_queue = [pid for pid in self._address_queue if pid != persona_id]
         if self._thinking == persona_id:
             self._thinking = None
         self._emit("persona_left", persona_id=persona_id)
@@ -175,6 +177,9 @@ class Room:
             content=content[:2000],
         )
         self._append(msg)
+        addressed = _addressed_persona(content, self.personas)
+        if addressed is not None:
+            self._address_queue.append(addressed.id)
         # A human spoke: let the room answer promptly instead of waiting out the delay.
         self._wake.set()
         return msg
@@ -283,11 +288,13 @@ class Room:
     def _pick_speaker(self) -> Optional[Persona]:
         if not self._rotation:
             return None
-        # If a human addressed someone by name, let them answer.
-        if self.messages and self.messages[-1].kind == "user":
-            addressed = _addressed_persona(self.messages[-1].content, self.personas)
+        # A human called on someone by name: they answer next, even if another
+        # turn was already in flight when the message arrived.
+        while self._address_queue:
+            pid = self._address_queue.pop(0)
+            addressed = self.personas.get(pid)
             if addressed is not None:
-                self._rotate_to(addressed.id)
+                self._rotate_to(pid)
                 return addressed
         pid = self._rotation[0]
         if pid == self._last_speaker and len(self._rotation) > 1:

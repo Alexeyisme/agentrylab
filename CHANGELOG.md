@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.0] - 2026-10-04
+### 🤖 The Room: a zero-player android stage (web UI)
+- **New `agentrylab serve`**: FastAPI server with REST + WebSocket API and a built-in web UI
+- **Live rooms**: add/remove personas while the conversation runs; humans can join and are answered by name
+- **12-persona library** plus a builder for custom personalities with selectable faces, bodies and colours
+- **Procedural SVG androids** with mood-driven micro-animations (blink, bob, thinking pulse, talking mouths, gesturing arms)
+- **Offline demo brain**: runs without any API key; OpenAI/Ollama picked up from the environment
+- **New `web/` frontend**: Vite + React 19 + TypeScript + Tailwind v4 + Motion + Zustand, built in CI
+- New optional extra `agentrylab[web]`; docs in `src/agentrylab/docs/ROOM.md`
+
 ## [0.1.7] - 2025-01-27
 ### 🎭 Complete Telegram API Implementation
 - **Full Telegram API**: Complete async implementation with event streaming

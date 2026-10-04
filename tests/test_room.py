@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 from agentrylab.room import PERSONA_LIBRARY, Persona, Room, RoomManager
 from agentrylab.room.personas import persona_from_template
 from agentrylab.room.providers import MockProvider
-from agentrylab.room.room import _addressed_persona, _clean_reply
+from agentrylab.room.room import RoomMessage, _addressed_persona, _clean_reply
 from agentrylab.room.server import create_app
 from agentrylab.runtime.providers.base import Message
 
@@ -75,7 +75,7 @@ def test_persona_avatar_validation():
 
 # ----------------------------------------------------------- mock provider
 def test_mock_provider_speaks_in_voice():
-    p = MockProvider()
+    p = MockProvider(latency=0)
     msgs = [
         Message(
             role="system",
@@ -87,6 +87,7 @@ def test_mock_provider_speaks_in_voice():
     text = out["content"]
     assert text and text[0].isupper()
     assert "data" in text or "mechanism" in text or "Rimshot" in text or "hot dogs" in text
+    assert "Now " not in text and "replies" not in text
     # deterministic for same inputs
     assert p.chat(msgs)["content"] == text
 
@@ -150,6 +151,21 @@ async def test_user_message_is_answered_by_addressed_persona():
             room.remove_persona(a.id)
     finally:
         await room.close()
+
+
+def test_addressed_persona_answers_even_after_an_in_flight_turn():
+    room = Room("q", provider_factory=echo_factory)
+    room.add_from_library("skeptic")  # Nope-9
+    chef = room.add_from_library("chef")  # Sous-Bot
+    room.post_user_message("Sous-Bot, thoughts?", name="Alex")
+    # another android finished its turn after the human spoke
+    room._append(RoomMessage(kind="persona", speaker_id="x", speaker_name="Nope-9", content="meanwhile"))
+    assert room._pick_speaker().id == chef.id
+    # consumed: next pick falls back to rotation
+    assert room._pick_speaker().id != chef.id
+    room.post_user_message("Sous-Bot again", name="Alex")
+    room.remove_persona(chef.id)
+    assert room._address_queue == []
 
 
 async def test_room_waits_when_empty_and_resumes_on_join():

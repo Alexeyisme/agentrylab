@@ -24,6 +24,31 @@ agentrylab run debates.yaml --objective "Should we colonize Mars?" --max-iters 4
 agentrylab run marketplace_deals.yaml --objective "MacBook Pro deals"
 ```
 
+## 🤖 The Room (web UI)
+
+A zero-player game: drop android personas onto a stage, watch them talk, and jump in whenever you like.
+
+![The Room](docs/room.png)
+
+```bash
+pip install 'agentrylab[web]'
+agentrylab serve            # → http://127.0.0.1:8000
+```
+
+- **No API key? No problem.** Without `OPENAI_API_KEY` the personas run on an offline *demo brain* so the stage is alive immediately. Set a key (or `AGENTRYLAB_ROOM_PROVIDER=ollama`) for real conversations.
+- **12 ready-made personalities** (comedian, philosopher, skeptic, noir detective, grandma, benevolent overlord…) or build your own: name, personality prompt, face, body, colour.
+- **Micro-animations**: blinking, idle bob, a "thinking" pulse while the model runs, equaliser mouths and gesturing arms while talking.
+- **Join the loop**: type a message; mention an android by name and it answers you next.
+- **Play / pause / step / speed**, change the topic mid-show, remove anyone with one click.
+
+| Variable | Meaning | Default |
+|----------|---------|---------|
+| `AGENTRYLAB_ROOM_PROVIDER` | `auto` · `openai` · `ollama` · `mock` | `auto` (OpenAI if a key is set, else mock) |
+| `AGENTRYLAB_ROOM_MODEL` | model name for openai/ollama | `gpt-4o-mini` / `llama3` |
+| `AGENTRYLAB_ROOM_TRANSCRIPTS` | where room transcripts (JSONL) go | `outputs/transcripts` |
+
+The UI lives in [`web/`](web/) (Vite + React + TypeScript + Tailwind + Motion); `agentrylab serve` serves the built bundle. See [web/README.md](web/README.md) for development.
+
 ## 🎭 What You Get
 
 **5 killer presets** that actually work:
@@ -121,6 +146,7 @@ for msg in lab.state.history:
 
 ## 📚 Documentation
 
+- [The Room / Web API](src/agentrylab/docs/ROOM.md) - Web UI, REST + WebSocket API
 - [CLI Reference](src/agentrylab/docs/CLI.md) - All commands
 - [Configuration](src/agentrylab/docs/CONFIG.md) - YAML preset format
 - [Architecture](src/agentrylab/docs/ARCHITECTURE.md) - How it works

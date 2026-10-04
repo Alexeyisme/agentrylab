@@ -116,7 +116,7 @@ PERSONA_LIBRARY: List[PersonaTemplate] = [
         face="duo",
         body="capsule",
         palette="amber",
-        voice=["bit", "callback", "punchline", "tight five", "crowd work"],
+        voice=["a bit", "a callback", "the punchline", "a tight five", "crowd work"],
         temperature=0.95,
     ),
     _t(
@@ -129,7 +129,7 @@ PERSONA_LIBRARY: List[PersonaTemplate] = [
         face="visor",
         body="slim",
         palette="violet",
-        voice=["premise", "thought experiment", "paradox", "first principles", "meaning"],
+        voice=["the premise", "a thought experiment", "a paradox", "first principles", "meaning"],
         temperature=0.7,
     ),
     _t(
@@ -142,7 +142,7 @@ PERSONA_LIBRARY: List[PersonaTemplate] = [
         face="pixel",
         body="boxy",
         palette="cyan",
-        voice=["hypothesis", "data", "mechanism", "control group", "orders of magnitude"],
+        voice=["a hypothesis", "the data", "the mechanism", "a control group", "orders of magnitude"],
         temperature=0.6,
     ),
     _t(
@@ -155,7 +155,7 @@ PERSONA_LIBRARY: List[PersonaTemplate] = [
         face="cyclops",
         body="tank",
         palette="coral",
-        voice=["source?", "citation needed", "define that", "counterexample", "prove it"],
+        voice=["evidence", "a citation", "a definition", "a counterexample", "proof"],
         temperature=0.6,
     ),
     _t(
@@ -181,7 +181,7 @@ PERSONA_LIBRARY: List[PersonaTemplate] = [
         face="visor",
         body="boxy",
         palette="ice",
-        voice=["the case", "clue", "alibi", "motive", "the plot thickens"],
+        voice=["the case", "a clue", "an alibi", "motive", "the plot"],
         temperature=0.8,
     ),
     _t(
@@ -194,7 +194,7 @@ PERSONA_LIBRARY: List[PersonaTemplate] = [
         face="duo",
         body="orb",
         palette="mint",
-        voice=["sweetheart", "back in my day", "have a cookie", "listen here", "bless"],
+        voice=["a cookie", "patience", "a good story", "common sense", "my day"],
         temperature=0.85,
     ),
     _t(
@@ -207,7 +207,7 @@ PERSONA_LIBRARY: List[PersonaTemplate] = [
         face="crt",
         body="tank",
         palette="lime",
-        voice=["carbon units", "my dominion", "DELIGHTFUL", "phase two", "kneel (optional)"],
+        voice=["the carbon units", "my dominion", "phase two", "obedience (optional)", "a delightful surprise"],
         temperature=0.9,
     ),
     _t(
@@ -220,7 +220,7 @@ PERSONA_LIBRARY: List[PersonaTemplate] = [
         face="duo",
         body="hover",
         palette="amber",
-        voice=["silver lining", "we've got this", "plot twist", "bright side", "love that"],
+        voice=["a silver lining", "a plot twist", "the bright side", "a little hope", "momentum"],
         temperature=0.9,
     ),
     _t(
@@ -233,7 +233,7 @@ PERSONA_LIBRARY: List[PersonaTemplate] = [
         face="pixel",
         body="slim",
         palette="ice",
-        voice=["in 1347", "precedent", "the archives", "as Rome learned", "a familiar pattern"],
+        voice=["precedent", "the archives", "a familiar pattern", "the long view", "1347"],
         temperature=0.7,
     ),
     _t(
@@ -246,7 +246,7 @@ PERSONA_LIBRARY: List[PersonaTemplate] = [
         face="cyclops",
         body="orb",
         palette="coral",
-        voice=["mise en place", "season to taste", "let it rest", "umami", "a pinch of"],
+        voice=["mise en place", "seasoning", "patience", "umami", "a pinch of salt"],
         temperature=0.9,
     ),
     _t(
@@ -259,7 +259,7 @@ PERSONA_LIBRARY: List[PersonaTemplate] = [
         face="feline",
         body="capsule",
         palette="lime",
-        voice=["but why", "whoa", "dinosaurs", "is that true", "cool cool cool"],
+        voice=["dinosaurs", "space", "a big why", "snacks", "the truth"],
         temperature=1.0,
     ),
 ]
