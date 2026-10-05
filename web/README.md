@@ -84,6 +84,32 @@ src/
 - **A new endpoint**: add a function to `api.ts` and an action to the store;
   components only ever talk to the store.
 
+## Smoke-testing headlessly
+
+There is no automated UI test suite. After a change, typecheck and then eyeball
+the real thing. Playwright (any version, Chromium) is enough:
+
+```js
+// node smoke.mjs  (with `agentrylab serve` running on :8000 and web/dist built)
+import { chromium } from "playwright";
+const browser = await chromium.launch();
+const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+page.on("pageerror", (e) => console.error("PAGE ERROR", e.message));
+await page.goto("http://localhost:8000/", { waitUntil: "networkidle" });
+await page.waitForTimeout(6000);                       // let the demo brain take a few turns
+await page.screenshot({ path: "stage.png" });
+await page.fill("textarea", "Kantor, is a hot dog a sandwich?");
+await page.keyboard.press("Enter");
+await page.waitForTimeout(3000);
+await page.screenshot({ path: "after-say.png" });
+await browser.close();
+```
+
+Things worth checking in the screenshots: no `<path> attribute d` console errors
+(a sign of an animation Motion cannot interpolate), bubbles sit above their
+android, the thinking dots appear between turns, and the layout still fits at a
+420 px viewport.
+
 ## Conventions
 
 - Dark theme only; colours are tokens in `index.css` (`ink-*`, `shell-*`, `fog-*`).

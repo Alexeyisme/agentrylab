@@ -11,6 +11,20 @@ AgentryLab is a Python package with two runtimes that share provider adapters:
 
 Guiding rule from `.cursor/rules`: keep it simple and easily extendable.
 
+## First ten minutes
+
+```bash
+pip install -e '.[dev]' && ruff check . && python -m pytest -q      # expect ~140 passed
+cd web && npm install && npm run build && cd ..                     # expect web/dist
+agentrylab serve                                                    # open http://127.0.0.1:8000
+```
+
+With no `OPENAI_API_KEY` the public stage runs on the offline demo brain, so the
+UI is fully exercisable without any secrets. `/docs` shows the API. Sign up with
+any email and a password of 8+ characters to try the vault and private rooms; a
+made-up API key is fine for the UI flow (the room pauses after the provider
+rejects it, which is the intended behaviour).
+
 ## Commands
 
 ```bash
@@ -50,6 +64,19 @@ Read `src/agentrylab/docs/ROOM.md` first; it has the diagram, turn lifecycle, AP
 - **Access control** is in `server._room` / `_owned_room` / the WebSocket handler: public `main` room for everyone, private rooms only for `owner_id`. Room creation needs a session.
 - **Mock brain.** `providers.MockProvider` parses the system prompt the room composes (`You are speaking as …`, `Topic: …`, `Voice: …` lines) to improvise in-character replies offline. Changing the prompt format in `Room._compose` breaks it; tests cover both.
 - **Frontend state** lives entirely in `web/src/store.ts` (zustand + the WebSocket client). Components never fetch; they call store actions, and the server echoes results back as socket events, so there is no optimistic state. Each android's `mood` (`idle | thinking | talking`) is derived in `Stage.tsx` from `thinking`/`speaking`, and every animation in `web/src/avatars/` is a function of that prop.
+
+## Testing recipes
+
+- **Room logic**: build `Room(..., provider_factory=lambda persona, room: FakeProvider())`, `room.start()` inside an `async def` test, drive it with `add_from_library` / `post_user_message` / `pause` / `step`, and poll `room.messages` with a short `wait_for` loop; always `await room.close()` in `finally`. A fake is a `MockProvider` subclass overriding `_send_chat` (see `EchoProvider` in `tests/test_room.py`).
+- **HTTP/WebSocket**: `create_app(manager=RoomManager(provider_factory=..., transcript_dir=tmp_path, seed_default=False), serve_ui=False, auth_store=AuthStore(tmp_path / "auth.db"), vault=KeyVault())` with `fastapi.testclient.TestClient`; the client keeps the session cookie, so register once and then call the authed endpoints. `client.websocket_connect("/ws/rooms/main")` yields events in order after the snapshot.
+- **Auth/crypto**: unit-test `AuthStore` and the `encrypt_key`/`decrypt_key`/`derive_kek` helpers directly; `tests/test_auth.py` is the reference.
+- **Frontend**: there are no automated UI tests. Verify changes with `npm run typecheck` and, for visuals, a headless Playwright script against a running server (see `web/README.md` → Smoke-testing).
+
+## Known gaps (deliberate, documented)
+
+- Rooms, casts and the key vault are in-process memory: a restart empties the stage (transcripts and accounts persist). Run one uvicorn worker.
+- No frontend test suite; no OAuth; model names for DeepSeek/xAI are best guesses and user-editable.
+- The roadmap (browser-held keys, spend meter, persistent rooms) is in `src/agentrylab/docs/ROOM.md` → Roadmap.
 
 ## Change checklists (things that live in two places)
 
