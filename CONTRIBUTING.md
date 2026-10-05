@@ -37,6 +37,7 @@ Stack, folder layout and the animation model are described in [`web/README.md`](
 | `src/agentrylab/docs/` | User documentation ([index](src/agentrylab/docs/README.md)) |
 | `web/` | Frontend |
 | `tests/` | Pytest suite; `test_room.py` and `test_auth.py` cover the web runtime without network |
+| `CLAUDE.md` | Orientation for AI coding agents: commands, architecture, cross-file change checklists |
 
 ## Common contributions
 
