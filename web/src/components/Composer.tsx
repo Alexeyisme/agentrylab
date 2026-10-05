@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useRoom } from "../store";
 
+/** The human's input: a remembered display name plus a message box (Enter sends, Shift+Enter breaks a line). */
 export default function Composer() {
   const say = useRoom((s) => s.say);
   const userName = useRoom((s) => s.userName);

@@ -4,6 +4,11 @@ import { useRoom } from "../store";
 import type { KeyInfo, ProviderSpec } from "../types";
 import Modal, { ErrorLine, ghostBtn, inputCls, primaryBtn } from "./Modal";
 
+/**
+ * "Brains & keys": one row per key provider (status chip, hint, replace/remove,
+ * remember toggle), an unlock banner when the vault is locked after a restart,
+ * the security explainer, and "forget all".
+ */
 export default function KeysModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const me = useRoom((s) => s.me);
   const catalog = useRoom((s) => s.catalog);

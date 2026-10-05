@@ -35,7 +35,8 @@ The execution engine:
 
 **Providers** - LLM adapters
 ```python
-OpenAIProvider(model="gpt-4o-mini", api_key="...")
+OpenAIProvider(model="gpt-4o-mini", api_key="...")          # also DeepSeek/xAI via base_url + vendor
+AnthropicProvider(model="claude-opus-5-5", api_key="...")   # official SDK
 OllamaProvider(model="llama3", base_url="localhost:11434")
 ```
 
@@ -133,6 +134,32 @@ class MyScheduler(Scheduler):
         # Your scheduling logic
         return nodes_to_run
 ```
+
+## 🤖 The Room (web runtime)
+
+The Room is a second, *live* orchestration layer that reuses the providers but
+not the Engine: there is no preset and no fixed schedule, because the cast
+changes while the conversation runs.
+
+```
+browser ──REST/WS──▶ server.py ──▶ RoomManager ──▶ Room (per room)
+                        │                           ├─ personas (live cast)
+                        ├─ AuthStore (SQLite)       ├─ messages (transcript)
+                        └─ KeyVault (memory)        ├─ asyncio loop: pick → compose → provider.chat (thread) → clean → emit
+                                                    └─ brain {provider, model} → providers.build_user_provider(key from vault)
+```
+
+- **Room**: owns the cast, the transcript, and an asyncio task that takes one
+  turn at a time. Mutations (add/remove persona, post message, pause, brain
+  change) happen on the event loop; only the provider call runs in a thread.
+- **RoomManager**: registry with ownership (`owner_id`), the public `main`
+  room, per-user limits, and the provider factory that resolves keys.
+- **Events**: every change is broadcast to subscribers (WebSocket clients) as a
+  small JSON event; the UI derives each android's *mood* from them.
+- **Persistence**: transcripts go to the same JSONL store as the CLI; accounts,
+  sessions and encrypted keys live in a separate SQLite file.
+
+Full details, API and security model: [ROOM.md](ROOM.md).
 
 ## 🎯 Design Principles
 

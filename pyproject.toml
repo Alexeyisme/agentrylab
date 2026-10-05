@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "agentrylab"
 version = "0.3.0"
-description = "Lightweight, hackable multi-agent orchestration lab (CLI + Python) with transcripts, checkpoints, budgets, and pluggable providers/tools."
+description = "Lightweight, hackable multi-agent orchestration lab (CLI + Python + web) with a live stage of animated android personas, transcripts, checkpoints, budgets, and pluggable providers/tools."
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [{ name = "Alexey Kislitsin" }]
@@ -15,7 +15,8 @@ keywords = [
     "multi-agent", "llm", "ai-agents", "agent-orchestration", "python", 
     "yaml-config", "cli-tool", "research", "experimentation", "ai-development", 
     "openai", "ollama", "llama3", "transcripts", "checkpoints", 
-    "streaming", "hackable", "lightweight", "lab", "workflow-engine"
+    "streaming", "hackable", "lightweight", "lab", "workflow-engine",
+    "web-ui", "fastapi", "websocket", "anthropic", "claude", "bring-your-own-key"
 ]
 classifiers = [
   "Development Status :: 3 - Alpha",

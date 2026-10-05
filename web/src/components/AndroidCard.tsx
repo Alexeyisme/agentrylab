@@ -17,6 +17,10 @@ interface Props {
   seed: number;
 }
 
+/**
+ * One android on stage: bubble or thinking dots above, the animated SVG, a
+ * nameplate, and on hover a remove button plus a tooltip with its personality.
+ */
 export default function AndroidCard({ persona, mood, size, bubble, bubbleLive, bubbleDimmed, onBubbleDone, onRemove, seed }: Props) {
   const accent = accentFor(persona.avatar.palette);
   const [hover, setHover] = useState(false);

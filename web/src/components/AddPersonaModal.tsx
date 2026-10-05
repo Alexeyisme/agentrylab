@@ -12,6 +12,7 @@ interface Props {
 
 type Tab = "library" | "custom";
 
+/** "Add an android": pick from the persona library, or build one with a live animated preview. */
 export default function AddPersonaModal({ open, onClose }: Props) {
   const [tab, setTab] = useState<Tab>("library");
 

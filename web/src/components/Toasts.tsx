@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from "motion/react";
 import { useRoom } from "../store";
 
+/** Bottom-left stack of transient notifications (click to dismiss). */
 export default function Toasts() {
   const toasts = useRoom((s) => s.toasts);
   const dismiss = useRoom((s) => s.dismissToast);

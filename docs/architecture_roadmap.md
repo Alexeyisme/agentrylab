@@ -119,4 +119,11 @@ so we can tackle the initiatives incrementally.
 - **Risks:** Without migration notes, teams might miss required cleanup steps;
   ensure communication accompanies code changes.
 
+## 9. The Room (web app)
 
+The web runtime has its own roadmap, kept next to its documentation so it stays
+in sync with the API: see
+[`src/agentrylab/docs/ROOM.md` → Roadmap](../src/agentrylab/docs/ROOM.md#roadmap).
+Headline items: OAuth sign-in, browser-held API keys (never touching the
+server), a per-room spend meter, hardened server-side secrets, persistent
+rooms.

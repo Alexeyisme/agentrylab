@@ -4,6 +4,7 @@ import Modal, { ErrorLine, Field, inputCls, primaryBtn } from "./Modal";
 
 type Mode = "login" | "register";
 
+/** Sign in / create account dialog; opens the keys vault on success. */
 export default function AuthModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const login = useRoom((s) => s.login);
   const register = useRoom((s) => s.register);

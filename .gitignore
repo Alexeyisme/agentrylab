@@ -46,6 +46,7 @@ htmlcov/
 # ----- Local environment -----
 .env
 .env.*
+!.env.example
 
 # ----- Project outputs -----
 outputs/

@@ -17,7 +17,30 @@ agentrylab ls <preset.yaml>
 
 # Clean up
 agentrylab reset <preset.yaml> <thread-id>
+
+# Start the web app (the Room)
+agentrylab serve [--host 127.0.0.1] [--port 8000] [--reload]
 ```
+
+## 🤖 `serve` — the Room web app
+
+```bash
+pip install 'agentrylab[web]'
+agentrylab serve                 # http://127.0.0.1:8000
+agentrylab serve --host 0.0.0.0 --port 9000
+agentrylab serve --reload        # dev: restart on code changes
+```
+
+| Option | What It Does |
+|--------|-------------|
+| `--host` | Bind address (default `127.0.0.1`; use `0.0.0.0` to expose) |
+| `--port` | Port (default `8000`) |
+| `--reload` | Auto-reload on Python changes (development) |
+
+`serve` loads `.env`, picks the public-stage brain from `AGENTRYLAB_ROOM_PROVIDER`
+(demo brain when no `OPENAI_API_KEY` is set) and serves the built UI from
+`web/dist`. Build the UI once with `cd web && npm install && npm run build`.
+Everything else (accounts, keys, rooms, API) is documented in [ROOM.md](ROOM.md).
 
 ## ⚙️ Run Options
 
@@ -110,6 +133,13 @@ agentrylab reset standup_club.yaml comedy-night --delete-transcript
 **Missing presets**:
 - Use full paths: `src/agentrylab/presets/standup_club.yaml`
 - Or install from source: `pip install -e .`
+
+**`serve` says the web UI has not been built**:
+- `cd web && npm install && npm run build`, or point `AGENTRYLAB_WEB_DIST` at a build
+- The API still works without the UI (`/docs`)
+
+**`serve` fails to import fastapi/uvicorn**:
+- Install the web extra: `pip install 'agentrylab[web]'`
 
 ## 🎯 Pro Tips
 

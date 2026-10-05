@@ -18,6 +18,10 @@ All notable changes to this project will be documented in this file.
 - **Private rooms** per user that run on the owner's keys; brain (provider + model) switchable per room; rooms pause with a clear message when a key is missing or failing
 - New `AnthropicProvider` (official SDK) and OpenAI-compatible DeepSeek/xAI wiring
 
+### 📚 Documentation
+- `ROOM.md` rewritten: architecture map, turn lifecycle, brains, threat model, full REST/WS reference, operating notes, roadmap
+- `.env.example`, updated CLI/CONFIG/ARCHITECTURE guides, CONTRIBUTING repository map, SECURITY hardening checklist, OpenAPI summaries on every endpoint
+
 ## [0.1.7] - 2025-01-27
 ### 🎭 Complete Telegram API Implementation
 - **Full Telegram API**: Complete async implementation with event streaming

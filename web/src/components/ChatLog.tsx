@@ -9,6 +9,7 @@ function fmt(t: number) {
   return new Date(t * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
+/** Transcript panel: persona lines with mini avatars, user lines right-aligned, system lines centred. */
 export default function ChatLog() {
   const messages = useRoom((s) => s.messages);
   const personas = useRoom((s) => s.personas);

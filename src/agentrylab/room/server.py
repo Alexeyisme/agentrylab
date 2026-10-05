@@ -157,7 +157,23 @@ def create_app(
             await mgr.close_all()
             store.close()
 
-    app = FastAPI(title="AgentryLab Room", version=__version__, lifespan=lifespan)
+    app = FastAPI(
+        title="AgentryLab Room",
+        version=__version__,
+        lifespan=lifespan,
+        description=(
+            "Live rooms of android personas. Anyone can watch and talk on the public "
+            "stage (`main`); signed-in users keep API keys in a memory-only vault and run "
+            "private rooms on their own brains. Full guide: docs/ROOM.md."
+        ),
+        openapi_tags=[
+            {"name": "meta", "description": "Health, catalog of avatars, personas and providers."},
+            {"name": "auth", "description": "Accounts, sessions and the API-key vault. Keys are never returned, only a hint."},
+            {"name": "rooms", "description": "Create, inspect and control rooms. Private rooms answer 403 to non-owners."},
+            {"name": "personas", "description": "Add or remove androids on a stage."},
+            {"name": "messages", "description": "Human messages into a room."},
+        ],
+    )
     app.state.manager = mgr
     app.state.auth = store
     app.state.vault = vault
@@ -230,11 +246,11 @@ def create_app(
             raise HTTPException(422, "pick a provider for your own room")
 
     # ------------------------------------------------------------- meta
-    @app.get("/api/health")
+    @app.get("/api/health", tags=["meta"], summary="Health and public-stage brain")
     async def health() -> Dict[str, Any]:
         return {"ok": True, "version": __version__, "provider": describe_provider()}
 
-    @app.get("/api/catalog")
+    @app.get("/api/catalog", tags=["meta"], summary="Avatar parts, persona library, provider catalog and limits")
     async def catalog() -> Dict[str, Any]:
         return {
             "avatars": AVATAR_CATALOG,
@@ -250,11 +266,11 @@ def create_app(
         }
 
     # ------------------------------------------------------------- auth
-    @app.get("/api/auth/me")
+    @app.get("/api/auth/me", tags=["auth"], summary="Who am I, which keys do I hold, is the vault unlocked")
     async def me(user: Optional[User] = Depends(current_user)) -> Dict[str, Any]:
         return me_payload(user)
 
-    @app.post("/api/auth/register", status_code=201)
+    @app.post("/api/auth/register", status_code=201, tags=["auth"], summary="Create an account and sign in")
     async def register(body: Credentials, request: Request, response: Response) -> Dict[str, Any]:
         if not signup_enabled:
             raise HTTPException(403, "sign-up is disabled on this server")
@@ -266,7 +282,7 @@ def create_app(
         set_cookie(response, request, store.create_session(user.id))
         return me_payload(user)
 
-    @app.post("/api/auth/login")
+    @app.post("/api/auth/login", tags=["auth"], summary="Sign in; unlocks the vault and loads remembered keys")
     async def login(body: Credentials, request: Request, response: Response) -> Dict[str, Any]:
         try:
             user = await asyncio.to_thread(store.verify_password, body.email, body.password)
@@ -282,7 +298,7 @@ def create_app(
         set_cookie(response, request, store.create_session(user.id))
         return me_payload(user)
 
-    @app.post("/api/auth/logout")
+    @app.post("/api/auth/logout", tags=["auth"], summary="Sign out and wipe this user's keys from server memory")
     async def logout(request: Request, response: Response, user: Optional[User] = Depends(current_user)) -> Dict[str, Any]:
         token = request.cookies.get(COOKIE_NAME)
         if token:
@@ -294,7 +310,7 @@ def create_app(
         response.delete_cookie(COOKIE_NAME, path="/")
         return {"ok": True}
 
-    @app.post("/api/auth/unlock")
+    @app.post("/api/auth/unlock", tags=["auth"], summary="Unlock the vault after a server restart")
     async def unlock(body: Unlock, user: User = Depends(require_user)) -> Dict[str, Any]:
         """Re-derive the vault key after a server restart (session cookie survived, memory did not)."""
         try:
@@ -308,7 +324,7 @@ def create_app(
         mgr.invalidate_user(user.id)
         return me_payload(user)
 
-    @app.post("/api/auth/password")
+    @app.post("/api/auth/password", tags=["auth"], summary="Change password and re-encrypt remembered keys")
     async def change_password(body: PasswordChange, user: User = Depends(require_user)) -> Dict[str, Any]:
         try:
             verified = await asyncio.to_thread(store.verify_password, user.email, body.current_password)
@@ -333,7 +349,7 @@ def create_app(
         return me_payload(user)
 
     # ------------------------------------------------------------- keys
-    @app.put("/api/auth/keys/{provider}")
+    @app.put("/api/auth/keys/{provider}", tags=["auth"], summary="Store an API key (memory; encrypted on disk if remember=true)")
     async def put_key(provider: str, body: KeyIn, user: User = Depends(require_user)) -> Dict[str, Any]:
         if provider not in KEY_PROVIDERS:
             raise HTTPException(404, f"unknown provider '{provider}'")
@@ -352,14 +368,14 @@ def create_app(
         mgr.invalidate_user(user.id)
         return me_payload(user)
 
-    @app.delete("/api/auth/keys/{provider}")
+    @app.delete("/api/auth/keys/{provider}", tags=["auth"], summary="Remove one key from memory and disk")
     async def delete_key(provider: str, user: User = Depends(require_user)) -> Dict[str, Any]:
         vault.remove(user.id, provider)
         store.delete_key_blob(user.id, provider)
         mgr.invalidate_user(user.id)
         return me_payload(user)
 
-    @app.delete("/api/auth/keys")
+    @app.delete("/api/auth/keys", tags=["auth"], summary="Forget every key, everywhere")
     async def forget_all_keys(user: User = Depends(require_user)) -> Dict[str, Any]:
         vault.forget(user.id)
         store.delete_key_blob(user.id)
@@ -367,7 +383,7 @@ def create_app(
         return me_payload(user)
 
     # ------------------------------------------------------------ rooms
-    @app.get("/api/rooms")
+    @app.get("/api/rooms", tags=["rooms"], summary="List the public stage and your own rooms")
     async def list_rooms(user: Optional[User] = Depends(current_user)) -> List[Dict[str, Any]]:
         mgr.get_or_create_default()
         return [
@@ -384,7 +400,7 @@ def create_app(
             for r in mgr.visible_to(user.id if user else None)
         ]
 
-    @app.post("/api/rooms", status_code=201)
+    @app.post("/api/rooms", status_code=201, tags=["rooms"], summary="Create a private room (requires sign-in)")
     async def create_room(body: RoomCreate, user: User = Depends(require_user)) -> Dict[str, Any]:
         brain = body.brain or _default_brain_for(user)
         _check_brain(brain, user)
@@ -400,18 +416,18 @@ def create_app(
                 return Brain(provider=pid)
         return Brain(provider="mock")
 
-    @app.get("/api/rooms/{room_id}")
+    @app.get("/api/rooms/{room_id}", tags=["rooms"], summary="Full snapshot of a room")
     async def get_room(room_id: str, user: Optional[User] = Depends(current_user)) -> Dict[str, Any]:
         return _room(room_id, user).snapshot()
 
-    @app.delete("/api/rooms/{room_id}", status_code=204)
+    @app.delete("/api/rooms/{room_id}", status_code=204, tags=["rooms"], summary="Close one of your rooms")
     async def delete_room(room_id: str, user: Optional[User] = Depends(current_user)) -> None:
         if room_id == RoomManager.DEFAULT_ROOM:
             raise HTTPException(400, "the default room cannot be deleted; clear it instead")
         _owned_room(room_id, user)
         await mgr.delete(room_id)
 
-    @app.patch("/api/rooms/{room_id}")
+    @app.patch("/api/rooms/{room_id}", tags=["rooms"], summary="Change topic, speed or (owner only) brain")
     async def update_room(room_id: str, body: Settings, user: Optional[User] = Depends(current_user)) -> Dict[str, Any]:
         room = _room(room_id, user)
         if body.topic is not None:
@@ -424,14 +440,14 @@ def create_app(
             room.set_brain(body.brain)
         return room.snapshot()
 
-    @app.post("/api/rooms/{room_id}/control")
+    @app.post("/api/rooms/{room_id}/control", tags=["rooms"], summary="Play, pause, step one turn, or clear the transcript")
     async def control(room_id: str, body: Control, user: Optional[User] = Depends(current_user)) -> Dict[str, Any]:
         room = _room(room_id, user)
         getattr(room, body.action)()
         return {"status": room.status, "speed": room.speed}
 
     # --------------------------------------------------------- personas
-    @app.post("/api/rooms/{room_id}/personas", status_code=201)
+    @app.post("/api/rooms/{room_id}/personas", status_code=201, tags=["personas"], summary="Add an android from the library or a custom one")
     async def add_persona(room_id: str, body: PersonaAdd, user: Optional[User] = Depends(current_user)) -> Dict[str, Any]:
         room = _room(room_id, user)
         overrides = body.model_dump(exclude={"template_id"}, exclude_none=True)
@@ -448,7 +464,7 @@ def create_app(
             raise HTTPException(409, str(e))
         return persona.model_dump()
 
-    @app.delete("/api/rooms/{room_id}/personas/{persona_id}", status_code=204)
+    @app.delete("/api/rooms/{room_id}/personas/{persona_id}", status_code=204, tags=["personas"], summary="Remove an android")
     async def remove_persona(room_id: str, persona_id: str, user: Optional[User] = Depends(current_user)) -> None:
         room = _room(room_id, user)
         try:
@@ -457,7 +473,7 @@ def create_app(
             raise HTTPException(404, f"persona '{persona_id}' not in room")
 
     # --------------------------------------------------------- messages
-    @app.post("/api/rooms/{room_id}/messages", status_code=201)
+    @app.post("/api/rooms/{room_id}/messages", status_code=201, tags=["messages"], summary="Say something as a human; name an android to have it answer next")
     async def post_message(room_id: str, body: UserMessage, user: Optional[User] = Depends(current_user)) -> Dict[str, Any]:
         room = _room(room_id, user)
         try:

@@ -29,6 +29,11 @@ function hash(s: string) {
   return Math.abs(h);
 }
 
+/**
+ * The room itself: androids laid out responsively, the latest line of each as a
+ * speech bubble, the human guest, and an empty-state call to action. Each
+ * android's mood is derived here from the store's `thinking` / `speaking`.
+ */
 export default function Stage({ onAdd }: { onAdd: () => void }) {
   const personas = useRoom((s) => s.personas);
   const messages = useRoom((s) => s.messages);

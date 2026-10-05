@@ -4,6 +4,10 @@ import { useRoom } from "../store";
 import BrainBadge from "./BrainBadge";
 import { RoomsMenu } from "./RoomsMenu";
 
+/**
+ * Header: brand, editable topic, transport controls (play/pause/step/speed),
+ * add-android button, live status, brain badge, room switcher and user menu.
+ */
 export default function TopBar({ onAdd }: { onAdd: () => void }) {
   const topic = useRoom((s) => s.topic);
   const status = useRoom((s) => s.status);

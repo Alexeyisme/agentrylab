@@ -44,9 +44,13 @@ agentrylab serve            # → http://127.0.0.1:8000
 
 | Variable | Meaning | Default |
 |----------|---------|---------|
-| `AGENTRYLAB_ROOM_PROVIDER` | `auto` · `openai` · `ollama` · `mock` | `auto` (OpenAI if a key is set, else mock) |
-| `AGENTRYLAB_ROOM_MODEL` | model name for openai/ollama | `gpt-4o-mini` / `llama3` |
+| `AGENTRYLAB_ROOM_PROVIDER` | public-stage brain: `auto` · `openai` · `ollama` · `mock` | `auto` (OpenAI if a key is set, else mock) |
+| `AGENTRYLAB_ROOM_MODEL` | model name for the public-stage brain | `gpt-4o-mini` / `llama3` |
+| `AGENTRYLAB_ROOM_DB` | accounts, sessions and encrypted keys (SQLite) | `outputs/room.db` |
 | `AGENTRYLAB_ROOM_TRANSCRIPTS` | where room transcripts (JSONL) go | `outputs/transcripts` |
+| `AGENTRYLAB_ALLOW_SIGNUP` / `AGENTRYLAB_COOKIE_SECURE` | close registration / mark cookies `Secure` behind HTTPS | `1` / auto |
+
+All variables, with comments, are in [`.env.example`](.env.example). The complete guide (architecture, how a turn works, accounts and the key threat model, REST + WebSocket API, operating notes, roadmap) is [ROOM.md](src/agentrylab/docs/ROOM.md).
 
 The UI lives in [`web/`](web/) (Vite + React + TypeScript + Tailwind + Motion); `agentrylab serve` serves the built bundle. See [web/README.md](web/README.md) for development.
 
@@ -66,7 +70,7 @@ The UI lives in [`web/`](web/) (Vite + React + TypeScript + Tailwind + Motion); 
 
 - **Agents**: Roles that speak (comedian, scientist, debater — no limits!)
 - **Tools**: Real integrations (DuckDuckGo search, Facebook Marketplace, Wolfram Alpha)
-- **Providers**: LLM backends (OpenAI, Ollama)
+- **Providers**: LLM backends (OpenAI, Anthropic, Ollama, and OpenAI-compatible APIs such as DeepSeek and xAI)
 - **Schedulers**: Who talks when (round-robin, every-N)
 
 ## 🛠️ Installation & Setup
@@ -152,6 +156,8 @@ for msg in lab.state.history:
 - [Configuration](src/agentrylab/docs/CONFIG.md) - YAML preset format
 - [Architecture](src/agentrylab/docs/ARCHITECTURE.md) - How it works
 - [Persistence](src/agentrylab/docs/PERSISTENCE.md) - Data storage format
+- [Web UI development](web/README.md) - Frontend stack and layout
+- [Security](SECURITY.md) - How user API keys are protected, operator checklist
 
 ## 🤝 Contributing
 
@@ -160,7 +166,8 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 **Quick wins:**
 - New presets (comedy, debates, research, etc.)
 - New tools (APIs, databases, etc.)
-- New providers (Claude, Gemini, etc.)
+- New personas and avatar parts for the Room
+- New providers (Gemini, Mistral, etc.)
 
 ## 📄 License
 
