@@ -146,6 +146,32 @@ providers:
     timeout: 30
 ```
 
+**Anthropic Provider** (needs `pip install anthropic`, included in `agentrylab[web]`)
+```yaml
+providers:
+  - id: claude
+    impl: agentrylab.runtime.providers.anthropic.AnthropicProvider
+    model: "claude-opus-5-5"
+    api_key: ${ANTHROPIC_API_KEY}
+    extra:
+      max_tokens: 1024      # default 1024
+      effort: low           # low | medium | high | xhigh | max (default low: short replies)
+```
+Thinking is adaptive by default on current Claude models; sampling parameters
+are only forwarded to older generations that still accept them. A `refusal`
+stop reason surfaces as a provider error.
+
+**OpenAI-compatible APIs** (DeepSeek, xAI, OpenRouter, vLLM, …)
+```yaml
+providers:
+  - id: deepseek
+    impl: agentrylab.runtime.providers.openai.OpenAIProvider
+    model: "deepseek-chat"
+    base_url: "https://api.deepseek.com/v1"
+    api_key: ${DEEPSEEK_API_KEY}
+    vendor: DeepSeek        # label used in error messages (optional)
+```
+
 ## 🎯 Agent Configuration
 
 ```yaml

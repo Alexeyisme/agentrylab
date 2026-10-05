@@ -53,3 +53,26 @@ jobs:
         run: |
           pytest --cov=src/agentrylab --cov-branch --cov-report=term-missing -q
 
+  web:
+    name: Web UI (typecheck + build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install
+        run: npm ci --no-audit --no-fund
+
+      - name: Typecheck and build
+        run: npm run build
+

@@ -29,10 +29,13 @@ class OpenAIProvider(LLMProvider):
         retries: Optional[int] = None,
         backoff: Optional[float] = None,
         api_key: Optional[str] = None,
+        vendor: str = "OpenAI",
         **kwargs: Any,
     ) -> None:
         # Allow environment override for base URL
         base = base_url or os.getenv("OPENAI_BASE_URL", DEFAULT_OPENAI_BASE_URL)
+        # Name used in error messages; OpenAI-compatible vendors (DeepSeek, xAI) set it.
+        self.vendor = vendor
 
         super().__init__(
             model=model,
@@ -101,7 +104,21 @@ class OpenAIProvider(LLMProvider):
                 resp.raise_for_status()
             except Exception as e:
                 emit_trace("provider_error", provider="openai", error=str(e), status_code=resp.status_code)
-                raise LLMProviderError(f"OpenAI error ({resp.status_code}): {resp.text}") from e
+                raise LLMProviderError(f"{self.vendor} error ({resp.status_code}): {_error_text(resp)}") from e
             data = resp.json()
             emit_trace("provider_response", provider="openai", model=self.model, status_code=resp.status_code, response_size=len(str(data)))
         return data
+
+
+def _error_text(resp: httpx.Response) -> str:
+    """Prefer the API's own message over a raw JSON dump."""
+    try:
+        data = resp.json()
+        err = data.get("error") if isinstance(data, dict) else None
+        if isinstance(err, dict) and isinstance(err.get("message"), str):
+            return err["message"]
+        if isinstance(err, str):
+            return err
+    except Exception:
+        pass
+    return resp.text[:300]

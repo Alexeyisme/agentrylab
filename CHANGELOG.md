@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.0] - 2026-10-04
+### 🤖 The Room: a zero-player android stage (web UI)
+- **New `agentrylab serve`**: FastAPI server with REST + WebSocket API and a built-in web UI
+- **Live rooms**: add/remove personas while the conversation runs; humans can join and are answered by name
+- **12-persona library** plus a builder for custom personalities with selectable faces, bodies and colours
+- **Procedural SVG androids** with mood-driven micro-animations (blink, bob, thinking pulse, talking mouths, gesturing arms)
+- **Offline demo brain**: runs without any API key; OpenAI/Ollama picked up from the environment
+- **New `web/` frontend**: Vite + React 19 + TypeScript + Tailwind v4 + Motion + Zustand, built in CI
+- New optional extra `agentrylab[web]`; docs in `src/agentrylab/docs/ROOM.md`
+
+### 🔐 Accounts and bring-your-own-key vault
+- **Email + password accounts** (scrypt, rate-limited login, HttpOnly session cookies)
+- **Key vault** for OpenAI, Anthropic, DeepSeek and xAI: keys live in server memory only and are wiped on sign-out, "forget", or restart; opt-in "remember" stores them AES-256-GCM encrypted under a password-derived key
+- **Private rooms** per user that run on the owner's keys; brain (provider + model) switchable per room; rooms pause with a clear message when a key is missing or failing
+- New `AnthropicProvider` (official SDK) and OpenAI-compatible DeepSeek/xAI wiring
+
+### 📚 Documentation
+- `ROOM.md` rewritten: architecture map, turn lifecycle, brains, threat model, full REST/WS reference, operating notes, roadmap
+- `CLAUDE.md` for coding agents (commands, architecture, change checklists), `.env.example`, updated CLI/CONFIG/ARCHITECTURE guides, CONTRIBUTING repository map, SECURITY hardening checklist, OpenAPI summaries on every endpoint
+
 ## [0.1.7] - 2025-01-27
 ### 🎭 Complete Telegram API Implementation
 - **Full Telegram API**: Complete async implementation with event streaming
