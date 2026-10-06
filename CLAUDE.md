@@ -72,6 +72,13 @@ Read `src/agentrylab/docs/ROOM.md` first; it has the diagram, turn lifecycle, AP
 - **Auth/crypto**: unit-test `AuthStore` and the `encrypt_key`/`decrypt_key`/`derive_kek` helpers directly; `tests/test_auth.py` is the reference.
 - **Frontend**: there are no automated UI tests. Verify changes with `npm run typecheck` and, for visuals, a headless Playwright script against a running server (see `web/README.md` → Smoke-testing).
 
+## Verification economy
+
+- Verify avatar/animation changes with DOM probes first (sample `getComputedStyle` opacity/transform over time with headless Playwright); view at most one cropped screenshot to confirm, and send extra images to the user as files instead of viewing them.
+- For avatar work, render all parts via a temporary gallery page (`web/gallery.html` + `web/src/__gallery.tsx`) under `vite --port 5199`; delete both before committing.
+- End `pkill …` with `; true` so it cannot abort the rest of a command chain.
+- Skip orientation reads: the Architecture sections above are the orientation; go straight to the files named in the task.
+
 ## Known gaps (deliberate, documented)
 
 - Rooms, casts and the key vault are in-process memory: a restart empties the stage (transcripts and accounts persist). Run one uvicorn worker.
