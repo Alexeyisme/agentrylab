@@ -2,7 +2,7 @@ import { motion } from "motion/react";
 import type { ReactElement, ReactNode } from "react";
 import type { FaceId, Mood } from "../types";
 import { SHELL, alpha } from "./palettes";
-import { useStill } from "./still";
+import { useAvatar } from "./context";
 
 /**
  * Faces draw the head: shell + eyes + mouth, in the 200x240 avatar box.
@@ -24,7 +24,7 @@ const blinkTransition = (seed: number) => ({
 
 /** Wraps eyes so they blink. */
 function Blink({ seed, children, mood }: { seed: number; mood: Mood; children: ReactNode }) {
-  const still = useStill();
+  const { still } = useAvatar();
   return (
     <motion.g
       className="tb"
@@ -36,18 +36,20 @@ function Blink({ seed, children, mood }: { seed: number; mood: Mood; children: R
   );
 }
 
-/** Pupils/irises wander while thinking. */
+/** Pupils/irises wander while thinking, and glance toward `lookAt` while idle. */
 function Gaze({ mood, children }: { mood: Mood; children: ReactNode }) {
+  const { lookAt } = useAvatar();
   return (
     <motion.g
+      initial={{ x: 0, y: 0 }}
       animate={
         mood === "thinking"
           ? { x: [0, 5, -4, 2, 0], y: [0, -3, 1, -2, 0] }
           : mood === "talking"
             ? { x: [0, 1.5, -1.5, 0], y: 0 }
-            : { x: 0, y: 0 }
+            : { x: lookAt * 5, y: 0 }
       }
-      transition={{ duration: mood === "thinking" ? 2.4 : 0.8, repeat: Infinity, ease: "easeInOut" }}
+      transition={mood === "idle" ? { duration: 0.5, ease: "easeOut" } : { duration: mood === "thinking" ? 2.4 : 0.8, repeat: Infinity, ease: "easeInOut" }}
     >
       {children}
     </motion.g>

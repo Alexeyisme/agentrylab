@@ -15,13 +15,15 @@ interface Props {
   onBubbleDone: () => void;
   onRemove: () => void;
   seed: number;
+  /** -1..1, direction of whoever has the floor (see Stage). */
+  lookAt?: number;
 }
 
 /**
  * One android on stage: bubble or thinking dots above, the animated SVG, a
  * nameplate, and on hover a remove button plus a tooltip with its personality.
  */
-export default function AndroidCard({ persona, mood, size, bubble, bubbleLive, bubbleDimmed, onBubbleDone, onRemove, seed }: Props) {
+export default function AndroidCard({ persona, mood, size, bubble, bubbleLive, bubbleDimmed, onBubbleDone, onRemove, seed, lookAt = 0 }: Props) {
   const accent = accentFor(persona.avatar.palette);
   const [hover, setHover] = useState(false);
 
@@ -70,7 +72,7 @@ export default function AndroidCard({ persona, mood, size, bubble, bubbleLive, b
         transition={{ type: "spring", stiffness: 200, damping: 18 }}
         style={{ filter: mood === "talking" ? `drop-shadow(0 0 24px ${alpha(accent, 0.45)})` : "none" }}
       >
-        <Android avatar={persona.avatar} mood={mood} seed={seed} size={size} />
+        <Android avatar={persona.avatar} mood={mood} seed={seed} size={size} lookAt={lookAt} />
       </motion.div>
 
       {/* nameplate */}

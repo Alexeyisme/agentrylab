@@ -2,7 +2,7 @@ import { motion } from "motion/react";
 import type { ReactElement } from "react";
 import type { BodyId, Mood } from "../types";
 import { SHELL, alpha } from "./palettes";
-import { useStill } from "./still";
+import { useAvatar } from "./context";
 
 /**
  * Bodies draw everything below the head (y >= 104) in the 200x240 box.
@@ -130,7 +130,7 @@ function Boxy(p: BodyProps) {
 
 function Hover(p: BodyProps) {
   const { accent, mood } = p;
-  const still = useStill();
+  const { still } = useAvatar();
   return (
     <g>
       <rect x={92} y={102} width={16} height={10} fill={SHELL.light} />

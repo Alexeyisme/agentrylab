@@ -4,7 +4,7 @@ import type { Avatar, Mood } from "../types";
 import { BODIES } from "./bodies";
 import { FACES } from "./faces";
 import { accentFor, alpha } from "./palettes";
-import { StillContext } from "./still";
+import { AvatarContext } from "./context";
 
 interface Props {
   avatar: Avatar;
@@ -14,18 +14,23 @@ interface Props {
   className?: string;
   /** Static mode freezes every ambient loop (for lists and thumbnails). */
   still?: boolean;
+  /** -1..1: turn the head and eyes toward the left/right while idle. */
+  lookAt?: number;
 }
 
 /**
  * A full android: body + face, with ambient bob, head tilt and a floor glow.
  * All micro-animations are driven by `mood`.
  */
-export default function Android({ avatar, mood = "idle", seed = 0, size = 180, className, still }: Props) {
+export default function Android({ avatar, mood = "idle", seed = 0, size = 180, className, still, lookAt = 0 }: Props) {
   const accent = accentFor(avatar.palette);
   const Face = FACES[avatar.face] ?? FACES.duo;
   const Body = BODIES[avatar.body] ?? BODIES.capsule;
   const bobDuration = useMemo(() => 3.2 + (seed % 5) * 0.35, [seed]);
   const hovering = avatar.body === "hover";
+  // Only idle androids follow the conversation; talking/thinking own the head.
+  const look = still || mood !== "idle" ? 0 : Math.max(-1, Math.min(1, lookAt));
+  const ctx = useMemo(() => ({ still: !!still, lookAt: look }), [still, look]);
 
   const bodyAnim = still
     ? { y: 0, rotate: 0 }
@@ -66,7 +71,7 @@ export default function Android({ avatar, mood = "idle", seed = 0, size = 180, c
       />
       <ellipse cx={100} cy={240} rx={46} ry={5} fill={alpha(accent, 0.35)} />
 
-      <StillContext.Provider value={!!still}>
+      <AvatarContext.Provider value={ctx}>
         <motion.g animate={bodyAnim} transition={{ duration: mood === "idle" ? bobDuration : 1.4, repeat: Infinity, ease: "easeInOut" }}>
           <Body accent={accent} mood={mood} />
           <motion.g
@@ -74,10 +79,18 @@ export default function Android({ avatar, mood = "idle", seed = 0, size = 180, c
             animate={headAnim}
             transition={{ duration: mood === "idle" ? bobDuration * 1.3 : 1.6, repeat: Infinity, ease: "easeInOut" }}
           >
-            <Face accent={accent} mood={mood} seed={seed} />
+            {/* head turn toward whoever has the floor */}
+            <motion.g
+              style={{ transformBox: "fill-box", transformOrigin: "50% 95%" }}
+              initial={{ rotate: 0 }}
+              animate={{ rotate: look * 7 }}
+              transition={{ type: "spring", stiffness: 120, damping: 14 }}
+            >
+              <Face accent={accent} mood={mood} seed={seed} />
+            </motion.g>
           </motion.g>
         </motion.g>
-      </StillContext.Provider>
+      </AvatarContext.Provider>
     </svg>
   );
 }

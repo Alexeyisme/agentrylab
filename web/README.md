@@ -63,7 +63,8 @@ src/
    then opens the WebSocket for the room in `?room=` (default `main`).
 2. The first socket frame is a full snapshot; every later event is applied by
    `store.applyEvent()` (messages, thinking, joins/leaves, status, topic, brain, errors).
-3. Each android's **mood** (`idle` / `thinking` / `talking`) is derived in `Stage`
+3. Each android's **mood** (`idle` / `thinking` / `talking`) and `lookAt` (which
+   way to turn toward whoever has the floor) are derived in `Stage`
    from `thinking` and `speaking` in the store. `talking` lasts while the bubble's
    typewriter runs, then `finishedSpeaking()` flips it back to idle.
 4. User actions call REST through `api.ts`; the server echoes the result as a

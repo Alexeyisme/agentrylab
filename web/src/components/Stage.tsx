@@ -59,6 +59,12 @@ export default function Stage({ onAdd }: { onAdd: () => void }) {
   const size = sizeFor(personas.length + (lastBySpeaker.has("user") ? 1 : 0), width);
   const guestLine = lastBySpeaker.get("user") ?? null;
 
+  // Who has the floor: the speaker, else whoever is thinking, else the guest
+  // if they just spoke. Idle androids turn toward that slot in the row (the
+  // guest sits after the last persona). Rows that wrap only approximate this.
+  const focusId = speaking?.personaId ?? thinking ?? (latest?.speaker_id === "user" ? "user" : null);
+  const focusIdx = focusId === "user" ? personas.length : focusId ? personas.findIndex((p) => p.id === focusId) : -1;
+
   return (
     <section className="relative flex min-h-0 flex-1 flex-col overflow-hidden noise">
       {/* ambient lights */}
@@ -75,8 +81,9 @@ export default function Stage({ onAdd }: { onAdd: () => void }) {
         ) : (
           <motion.div layout className="my-auto flex w-full flex-wrap items-end justify-center gap-x-2 gap-y-8">
             <AnimatePresence mode="popLayout">
-              {personas.map((p) => {
+              {personas.map((p, i) => {
                 const last = lastBySpeaker.get(p.id) ?? null;
+                const lookAt = focusIdx < 0 || focusIdx === i ? 0 : Math.sign(focusIdx - i);
                 const mood: Mood = thinking === p.id ? "thinking" : speaking?.personaId === p.id ? "talking" : "idle";
                 const isLatest = !!last && latest?.id === last.id;
                 const bubble = last && (isLatest || Date.now() - last.t * 1000 < 12000) ? last : null;
@@ -87,6 +94,7 @@ export default function Stage({ onAdd }: { onAdd: () => void }) {
                     mood={mood}
                     size={size}
                     seed={hash(p.id)}
+                    lookAt={lookAt}
                     bubble={bubble}
                     bubbleLive={!!bubble && speaking?.messageId === bubble.id}
                     bubbleDimmed={!!bubble && !isLatest}
