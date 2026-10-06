@@ -4,6 +4,7 @@ import type { Avatar, Mood } from "../types";
 import { BODIES } from "./bodies";
 import { FACES } from "./faces";
 import { accentFor, alpha } from "./palettes";
+import { StillContext } from "./still";
 
 interface Props {
   avatar: Avatar;
@@ -11,7 +12,7 @@ interface Props {
   seed?: number;
   size?: number;
   className?: string;
-  /** Static mode skips the ambient bob (for lists and thumbnails). */
+  /** Static mode freezes every ambient loop (for lists and thumbnails). */
   still?: boolean;
 }
 
@@ -65,16 +66,18 @@ export default function Android({ avatar, mood = "idle", seed = 0, size = 180, c
       />
       <ellipse cx={100} cy={240} rx={46} ry={5} fill={alpha(accent, 0.35)} />
 
-      <motion.g animate={bodyAnim} transition={{ duration: mood === "idle" ? bobDuration : 1.4, repeat: Infinity, ease: "easeInOut" }}>
-        <Body accent={accent} mood={mood} />
-        <motion.g
-          style={{ transformBox: "fill-box", transformOrigin: "50% 95%" }}
-          animate={headAnim}
-          transition={{ duration: mood === "idle" ? bobDuration * 1.3 : 1.6, repeat: Infinity, ease: "easeInOut" }}
-        >
-          <Face accent={accent} mood={mood} seed={seed} />
+      <StillContext.Provider value={!!still}>
+        <motion.g animate={bodyAnim} transition={{ duration: mood === "idle" ? bobDuration : 1.4, repeat: Infinity, ease: "easeInOut" }}>
+          <Body accent={accent} mood={mood} />
+          <motion.g
+            style={{ transformBox: "fill-box", transformOrigin: "50% 95%" }}
+            animate={headAnim}
+            transition={{ duration: mood === "idle" ? bobDuration * 1.3 : 1.6, repeat: Infinity, ease: "easeInOut" }}
+          >
+            <Face accent={accent} mood={mood} seed={seed} />
+          </motion.g>
         </motion.g>
-      </motion.g>
+      </StillContext.Provider>
     </svg>
   );
 }

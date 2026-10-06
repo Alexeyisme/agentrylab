@@ -92,7 +92,7 @@ Read `src/agentrylab/docs/ROOM.md` first; it has the diagram, turn lifecycle, AP
 
 ## Frontend gotchas
 
-- Motion treats `x`/`y` on SVG elements as CSS translate, not the attribute: set the attribute for position and animate `x: [0, 26, 0]` relative to it. Motion cannot interpolate path `d`; crossfade several paths or scale instead.
+- Motion treats `x`/`y` on SVG elements as CSS translate, not the attribute: set the attribute for position and animate `x: [0, 26, 0]` relative to it. A single-value `animate` (e.g. `{ x: 0 }` or `{ scaleX: 0.5 }`) with `repeat: Infinity` needs a matching `initial`, otherwise Motion replays attribute→target forever. Motion cannot interpolate path `d`; crossfade several paths or scale instead.
 - Put `className="tb"` on any SVG group you scale/rotate so it transforms around its own box (`transform-box: fill-box` in `index.css`).
 - `@types/react` 19 removed the global `JSX` namespace; use `ReactElement`/`ReactNode` from `react`.
 - Google Fonts are linked in `index.html`; the UI falls back to system fonts offline.

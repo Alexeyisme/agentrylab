@@ -2,6 +2,7 @@ import { motion } from "motion/react";
 import type { ReactElement, ReactNode } from "react";
 import type { FaceId, Mood } from "../types";
 import { SHELL, alpha } from "./palettes";
+import { useStill } from "./still";
 
 /**
  * Faces draw the head: shell + eyes + mouth, in the 200x240 avatar box.
@@ -23,10 +24,11 @@ const blinkTransition = (seed: number) => ({
 
 /** Wraps eyes so they blink. */
 function Blink({ seed, children, mood }: { seed: number; mood: Mood; children: ReactNode }) {
+  const still = useStill();
   return (
     <motion.g
       className="tb"
-      animate={mood === "thinking" ? { scaleY: [1, 0.75, 0.75, 1] } : { scaleY: [1, 1, 0.08, 1] }}
+      animate={still ? { scaleY: 1 } : mood === "thinking" ? { scaleY: [1, 0.75, 0.75, 1] } : { scaleY: [1, 1, 0.08, 1] }}
       transition={mood === "thinking" ? { duration: 1.6, repeat: Infinity, ease: "easeInOut" } : blinkTransition(seed)}
     >
       {children}
@@ -125,6 +127,7 @@ function Visor({ accent, mood, seed }: FaceProps) {
             rx={4}
             fill={accent}
             style={{ filter: `drop-shadow(0 0 6px ${accent})` }}
+            initial={{ x: 0 }}
             animate={mood === "thinking" ? { x: [0, 26, 0] } : { x: 0 }}
             transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
           />
@@ -136,6 +139,7 @@ function Visor({ accent, mood, seed }: FaceProps) {
             rx={4}
             fill={accent}
             style={{ filter: `drop-shadow(0 0 6px ${accent})` }}
+            initial={{ x: 0 }}
             animate={mood === "thinking" ? { x: [0, -26, 0] } : { x: 0 }}
             transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
           />

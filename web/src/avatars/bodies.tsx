@@ -2,6 +2,7 @@ import { motion } from "motion/react";
 import type { ReactElement } from "react";
 import type { BodyId, Mood } from "../types";
 import { SHELL, alpha } from "./palettes";
+import { useStill } from "./still";
 
 /**
  * Bodies draw everything below the head (y >= 104) in the 200x240 box.
@@ -111,6 +112,7 @@ function Boxy(p: BodyProps) {
         rx={1}
         fill={accent}
         opacity={0.6}
+        initial={{ scaleX: 0.5 }}
         animate={mood === "talking" ? { scaleX: [0.4, 1, 0.6, 0.9, 0.4] } : { scaleX: 0.5 }}
         style={{ transformOrigin: "left center", transformBox: "fill-box" }}
         transition={{ duration: 0.7, repeat: Infinity, ease: "easeInOut" }}
@@ -128,6 +130,7 @@ function Boxy(p: BodyProps) {
 
 function Hover(p: BodyProps) {
   const { accent, mood } = p;
+  const still = useStill();
   return (
     <g>
       <rect x={92} y={102} width={16} height={10} fill={SHELL.light} />
@@ -148,11 +151,11 @@ function Hover(p: BodyProps) {
         ry={6}
         fill={accent}
         style={{ filter: `blur(4px)` }}
-        animate={{ opacity: mood === "talking" ? [0.5, 0.9, 0.5] : [0.3, 0.6, 0.3], scaleX: [0.9, 1.1, 0.9] }}
+        animate={still ? { opacity: 0.45, scaleX: 1 } : { opacity: mood === "talking" ? [0.5, 0.9, 0.5] : [0.3, 0.6, 0.3], scaleX: [0.9, 1.1, 0.9] }}
         transition={{ duration: 1.1, repeat: Infinity, ease: "easeInOut" }}
       />
       {[72, 86, 100, 114, 128].map((x, i) => (
-        <motion.rect key={x} className="tb" x={x - 2} y={205} width={4} height={6} rx={1} fill={accent} animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 0.8, repeat: Infinity, delay: i * 0.12 }} />
+        <motion.rect key={x} className="tb" x={x - 2} y={205} width={4} height={6} rx={1} fill={accent} animate={still ? { opacity: 0.7 } : { opacity: [0.3, 1, 0.3] }} transition={{ duration: 0.8, repeat: Infinity, delay: i * 0.12 }} />
       ))}
     </g>
   );
@@ -230,6 +233,7 @@ function Tank(p: BodyProps) {
         rx={2}
         fill={accent}
         style={{ transformOrigin: "left center", transformBox: "fill-box", filter: `drop-shadow(0 0 4px ${accent})` }}
+        initial={{ scaleX: 0.7 }}
         animate={mood === "thinking" ? { scaleX: [0.1, 1, 0.1] } : mood === "talking" ? { scaleX: [0.5, 0.9, 0.6, 1, 0.5] } : { scaleX: 0.7 }}
         transition={{ duration: mood === "thinking" ? 1.2 : 0.6, repeat: Infinity, ease: "easeInOut" }}
       />
